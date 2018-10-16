@@ -64,6 +64,8 @@ QISKit入門
 `IBM Q experience backend information <https://github.com/Qiskit/ibmqx-backend-information>`_
 と `IBM Q experience devices page <https://quantumexperience.ng.bluemix.net/qx/devices>`_　を参照してください。
 
+.. include:: example_real_backend.rst
+
 プロジェクト構成
 ----------------
 
