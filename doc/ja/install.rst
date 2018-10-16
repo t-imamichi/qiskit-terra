@@ -72,7 +72,7 @@ MY_API_TOKEN の部分をあなたのトークンに置き換えてください�
 
 あながた、IBM Q network を使用している場合は、
 q-consoleのアカウントページにある url の文字と必要なその他の追加情報（プロキシ情報など）を
- IBMQ.save_account（） に渡す必要があります。
+IBMQ.save_account（） に渡す必要があります。
 
 .. code:: python
 
