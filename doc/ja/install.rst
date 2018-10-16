@@ -17,7 +17,6 @@ QISKitを利用するには少なくとも `Python 3.5か以降 <https://www.pyt
 `Anaconda 3 <https://www.continuum.io/downloads>`__ という
 Python ディストリビューションをお勧めします。
 
-
 2. インストール
 -------------------
 
@@ -28,8 +27,6 @@ QISKitをインストールする最も簡単な方法はPIP tool(Pythonのパ�
     pip install qiskit
 
 これですべての依存関係に沿った、最新の安定したリリースがインストールされます。
-.. _qconfig-setup:
-
 
 3. APIトークンとQEの資格の設定
 ----------------------------
@@ -207,13 +204,10 @@ JupyterノートブックはPythonコードの「セル」が埋め込まれたW
 トラブルシューティング
 ===============
 
-The installation steps described on this document assume familiarity with the
-Python environment on your setup (for example, standard Python, ``virtualenv``
-or Anaconda). Please consult the relevant documentation for instructions
-tailored to your environment.
+このドキュメントで説明しているインストール手順は、Python環境（標準のPython、virtualenv、Anacondaなど）に
+精通していることを前提としています。 ご使用の環境に合わせた手順については、該当するドキュメントを参照してください。
 
-Depending on the system and setup, appending "sudo -H" before the
-``pip install`` command could be needed:
+システムとセットアップによっては、pip installコマンドの前に "sudo -H"を追加する必要があります：
 
 .. code:: sh
 
