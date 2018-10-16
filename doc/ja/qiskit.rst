@@ -22,10 +22,10 @@ QISKitは、深さが限定的な量子回路を設計して直近の応用を�
 QISKitプロジェクトの構成は以下の通りです:
 
 * `Qiskit Terra <https://github.com/Qiskit/qiskit-terra>`_: 
-　量子コンピューティングの実験、プログラム、アプリケーションを書くためのPython のサイエンス開発キット
+  量子コンピューティングの実験、プログラム、アプリケーションを書くためのPython のサイエンス開発キット
 
 * `Qiskit Aqua <https://github.com/Qiskit/aqua>`_:  
-　ノイズのある中規模量子コンピューター(NISQ) のためのアプリケーションを構築するライブラリーとツール
+  ノイズのある中規模量子コンピューター(NISQ) のためのアプリケーションを構築するライブラリーとツール
 
 * `Qiskit SDK <https://github.com/Qiskit/qiskit-terra>`_:
   量子コンピューターのプログラムやアプリケーションを開発して実験を行うためのPythonソフトウェア開発キット
