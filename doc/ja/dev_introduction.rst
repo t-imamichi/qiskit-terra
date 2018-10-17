@@ -77,6 +77,27 @@ Terra は、標準のPython "logging"ライブラリー
 .. tabularcolumns:: |l|L|
 
 +--------------+----------------------------------------------+
+| Level        | When it's used                               |
++==============+==============================================+
+| ``DEBUG``    | Detailed information, typically of interest  |
+|              | only when diagnosing problems.               |
++--------------+----------------------------------------------+
+| ``INFO``     | Confirmation that things are working as      |
+|              | expected.                                    |
++--------------+----------------------------------------------+
+| ``WARNING``  | An indication that something unexpected      |
+|              | happened, or indicative of some problem in   |
+|              | the near future (e.g. 'disk space low').     |
+|              | The software is still working as expected.   |
++--------------+----------------------------------------------+
+| ``ERROR``    | Due to a more serious problem, the software  |
+|              | has not been able to perform some function.  |
++--------------+----------------------------------------------+
+| ``CRITICAL`` | A serious error, indicating that the program |
+|              | itself may be unable to continue running.    |
++--------------+----------------------------------------------+
+
++--------------+----------------------------------------------+
 | レベル        | 使用時                                        |
 +==============+==============================================+
 | ``DEBUG``    | 詳細な情報。通常、問題の診断時にのみ重要です。       |
@@ -120,13 +141,11 @@ Terraの上にアプリケーションを開発する場合は、考慮してく
 テストする
 --------
 
-Terra は、uses the `standard Pyton "unittest" framework
-<https://docs.python.org/3/library/unittest.html>`_ for the testing of the
-different components and functionality.
+Terra は、異なるコンポーネントや機能をテストするために `標準の Pyton "unittest" フレームワーク
+<https://docs.python.org/3/library/unittest.html>`_ を使います。
 
-As our build system is based on CMake, we need to perform what is called an
-"out-of-source" build before running the tests.
-This is as simple as executing these commands:
+ビルドシステムはCMakeに基づいているので、テストを実行する前に「ソース外」ビルドを実行する必要があります。
+これは、次のコマンドを実行するだけです:
 
 Linux and Mac:
 
@@ -146,14 +165,12 @@ Windows:
     C:\..\out> cmake -DUSER_LIB_PATH=C:\path\to\mingw64\lib\libpthreads.a -G "MinGW Makefiles" ..
     C:\..\out> make
 
-This will generate all needed binaries for your specific platform.
+これにより、特定のプラットフォームに必要なすべてのバイナリが生成されます。
 
-For executing the tests, a ``make test`` target is available.
-The execution of the tests (both via the make target and during manual invocation)
-takes into account the ``LOG_LEVEL`` environment variable. If present, a ``.log``
-file will be created on the test directory with the output of the log calls, which
-will also be printed to stdout. You can adjust the verbosity via the content
-of that variable, for example:
+テストを実行するために、 ``make test``のターゲットが利用可能です。
+テストの実行（makeターゲット経由と手動起動ともに）は、環境変数 ``LOG_LEVEL``を考慮に入れます。
+存在する場合、テストディレクトリに ``.log`` ファイルが作成され、ログ呼び出しの出力が生成されます。
+これもstdoutに出力されます。その変数の内容を使って冗長性を調整することができます。例えば：
 
 Linux and Mac:
 
@@ -171,9 +188,8 @@ Windows:
     C:\..\out> set ARGS="-V"
     C:\..\out> make test
 
-For executing a simple python test manually, we don't need to change the directory
-to ``out``, just run this command:
-
+単純なPythonテストを手動で実行するには、ディレクトリーを ``out`` に変更する必要はありません。
+このコマンドを実行するだけです：
 
 Linux and Mac:
 
@@ -188,11 +204,15 @@ Windows:
     C:\..\> set LOG_LEVEL="INFO"
     C:\..\> python -m unittest test/python/test_apps.py
 
-Testing options
+テストのオプション
 ^^^^^^^^^^^^^^^
 
-By default, and if there is no user credentials available, the tests that require online access are run with recorded (mocked) information. This is, the remote requests are replayed from a ``test/cassettes`` and not real HTTP requests is generated.
-If user credentials are found, in that cases it use them to make the network requests.
+デフォルトでは、利用可能なユーザーの資格情報がない場合、オンラインアクセスが必要なテストは、記録された（模擬された）情報で実行されます。
+つまり、リモートリクエストは ``test/cassettes`` から再生され、実際のHTTPリクエストは生成されません。
+ユーザーの資格情報が見つかった場合は、ネットワークのリクエストが行われます。
+
+どのようにしてどのテストが実行されるかは、環境変数 ``QISKIT_TESTS`` によって制御されます。 
+オプションは次のとおりです（ユーザー資格情報が利用可能な場合は ``uc_available = True``、そうでない場合は ``False``）:
 
 How and which tests are executed is controlled by a environment variable ``QISKIT_TESTS``. The options are (where ``uc_available = True`` if the user credentials are available, and ``False`` otherwise): 
 
@@ -209,5 +229,6 @@ How and which tests are executed is controlled by a environment variable ``QISKI
 |                   |                                                                                                                    |                       | ``run_slow = False``                             |
 +-------------------+--------------------------------------------------------------------------------------------------------------------+-----------------------+--------------------------------------------------+
 
-It is possible to provide more than one option separated with commas.
-The order of precedence in the options is right to left. For example, ``QISKIT_TESTS=skip_online,rec`` will set the options as ``skip_online == False`` and ``rec == True``.	
+コンマで区切られた複数のオプションを指定することは可能です。
+オプションの優先順位は、右から左です。 
+たとえば、``QISKIT_TESTS=skip_online,rec`` は ``skip_online == False``と ``rec == True`` のオプションを設定します。
