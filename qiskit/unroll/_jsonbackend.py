@@ -268,10 +268,7 @@ class JsonBackend(UnrollerBackend):
                 # TODO: keep these real for now, until a later time
                 'params': list(map(lambda x: float(x.real(nested_scope)),
                                    args)),
-                'texparams': list(map(lambda x:
-                                      x.latex(prec=8,
-                                              nested_scope=nested_scope),
-                                      args)),
+                'texparams': [], # list(map(lambda x: x.latex(prec=8, nested_scope=nested_scope), args)),
                 'qubits': qubit_indices,
             }
             if extra_fields is not None:
