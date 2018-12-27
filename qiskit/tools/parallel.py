@@ -54,7 +54,7 @@ from qiskit.tools.events._pubsub import Publisher
 os.environ['QISKIT_IN_PARALLEL'] = 'FALSE'
 
 # Number of local physical cpus
-CPU_COUNT = local_hardware_info()['cpus']
+CPU_COUNT = 1 # local_hardware_info()['cpus']
 
 
 def parallel_map(task, values, task_args=tuple(), task_kwargs={},  # pylint: disable=W0102

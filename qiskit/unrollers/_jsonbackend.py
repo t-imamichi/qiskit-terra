@@ -203,7 +203,7 @@ class JsonBackend(UnrollerBackend):
             gate_instruction = {
                 'name': op.name,
                 'params': list(map(lambda x: x.evalf(), op.param)),
-                'texparams': list(map(sympy.latex, op.param)),
+                'texparams': [], # list(map(sympy.latex, op.param)),
                 'qubits': qubit_indices,
                 'memory': clbit_indices
             }
