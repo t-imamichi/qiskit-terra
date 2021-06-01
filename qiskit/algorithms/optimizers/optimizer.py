@@ -161,14 +161,12 @@ class Optimizer(ABC):
                 else:
                     todo_results.extend(results)
                 i += max_evals_grouped
-
         grad = []
         div = 2 * np.sin(epsilon)
         for i in range(0, len(todo_results), 2):
             plus = todo_results[i]
             minus = todo_results[i + 1]
             grad.append((plus - minus) / div)
-
         return np.array(grad)
 
     @staticmethod
