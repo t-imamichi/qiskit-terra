@@ -79,7 +79,10 @@ def circuit_to_gate(circuit, parameter_map=None, equivalence_library=None, label
     )
     gate.condition = None
 
-    target = circuit.assign_parameters(parameter_dict, inplace=False)
+    if all(key == value for key, value in parameter_dict.items()):
+        target = circuit.copy()
+    else:
+        target = circuit.assign_parameters(parameter_dict, inplace=False)
 
     if equivalence_library is not None:
         equivalence_library.add_equivalence(gate, target)

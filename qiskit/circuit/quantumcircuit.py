@@ -742,6 +742,7 @@ class QuantumCircuit:
         front: bool = False,
         inplace: bool = False,
         wrap: bool = False,
+        copy_instructions: bool = True,
     ) -> Optional["QuantumCircuit"]:
         """Compose circuit with ``other`` circuit or instruction, optionally permuting wires.
 
@@ -757,6 +758,8 @@ class QuantumCircuit:
             inplace (bool): If True, modify the object. Otherwise return composed circuit.
             wrap (bool): If True, wraps the other circuit into a gate (or instruction, depending on
                 whether it contains only unitary instructions) before composing it onto self.
+            copy_instructions(bool): If True, copy the instructions of ``other``. Otherwise, attach them
+                to ``self`` directly. (Default: true)
 
         Returns:
             QuantumCircuit: the composed circuit (returns None if inplace==True).
@@ -857,7 +860,7 @@ class QuantumCircuit:
         for instr, qargs, cargs in instrs:
             n_qargs = [edge_map[qarg] for qarg in qargs]
             n_cargs = [edge_map[carg] for carg in cargs]
-            n_instr = instr.copy()
+            n_instr = instr.copy() if copy_instructions else instr
 
             if instr.condition is not None:
                 from qiskit.dagcircuit import DAGCircuit  # pylint: disable=cyclic-import
@@ -1458,7 +1461,7 @@ class QuantumCircuit:
 
         pass_ = Decompose(gates_to_decompose=gates_to_decompose)
         decomposed_dag = pass_.run(circuit_to_dag(self))
-        return dag_to_circuit(decomposed_dag)
+        return dag_to_circuit(decomposed_dag, copy_instructions=False)
 
     def _check_compatible_regs(self, rhs: "QuantumCircuit") -> None:
         """Raise exception if the circuits are defined on incompatible registers"""
