@@ -1,0 +1,47 @@
+name: main
+
+on:
+  push:
+    branches:
+      - estimator-dev
+  pull_request:
+    branches:
+      - estimator-dev
+
+jobs:
+  test:
+    name: Run tests
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v2
+      - name: Set up Python 3.9
+        uses: actions/setup-python@v2
+        with:
+          python-version: 3.9
+      - name: Install Dependencies
+        run: |
+          pip install -e .
+          pip install https://github.com/Qiskit/qiskit-aer/archive/refs/heads/main.zip
+          pip install -U -c constraints.txt -r requirements-dev.txt
+      - name: Run tests
+        run: stestr run primitives
+  lint:
+    name: Run lint
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v2
+      - name: Set up Python 3.9
+        uses: actions/setup-python@v2
+        with:
+          python-version: 3.9
+      - name: Install Dependencies
+        run: |
+          pip install -e .
+          pip install -U -c constraints.txt -r requirements-dev.txt
+          pip install mypy
+      - name: Run lint
+        run: pylint -rn qiskit/quantum_info/primitives test/python/quantum_info/primitives
+      - name: Run mypy
+        run: mypy --warn-unused-configs --ignore-missing-imports --no-strict-optional qiskit/quantum_info/primitives
