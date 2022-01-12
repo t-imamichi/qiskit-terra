@@ -20,7 +20,7 @@ from typing import TYPE_CHECKING, Optional, Union
 
 import numpy as np
 
-from ...backends import ShotResult
+from ...results import SamplerResult
 from ...framework.base_primitive import BasePrimitive
 from ...results import CompositeResult
 from ...results.base_result import BaseResult
@@ -54,7 +54,7 @@ class JointPrimitive(BasePrimitive):
             )
         return self._transpiled_circuits
 
-    def _postprocessing(self, result: Union[dict, ShotResult]) -> BaseResult:
+    def _postprocessing(self, result: Union[dict, SamplerResult]) -> BaseResult:
         current_counter = self._counter
         self._counter += 1
         if self._counter == len(self._evaluators):
@@ -97,7 +97,7 @@ class JointPrimitive(BasePrimitive):
                     for circ in evaluator.transpiled_circuits
                 ]
 
-        results = self._backend.run_and_wait(circuits, **run_opts_dict)
+        results = self._backend.run(circuits, **run_opts_dict)
 
         accum = 0
         postprocessed = []

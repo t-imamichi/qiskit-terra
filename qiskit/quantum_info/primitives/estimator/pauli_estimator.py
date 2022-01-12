@@ -27,8 +27,8 @@ from qiskit.quantum_info import SparsePauliOp, Statevector
 from qiskit.quantum_info.operators.base_operator import BaseOperator
 from qiskit.result import Counts
 
-from ..backends import ShotBackendWrapper, ShotResult
-from ..results import EstimatorResult
+from ..sampler import BaseSampler
+from ..results import EstimatorResult, SamplerResult
 from .base_estimator import BaseEstimator
 
 logger = logging.getLogger(__name__)
@@ -43,13 +43,13 @@ class PauliEstimator(BaseEstimator):
         self,
         circuit: Union[QuantumCircuit, Statevector],
         observable: Union[BaseOperator, PauliSumOp],
-        backend: Union[Backend, ShotBackendWrapper],
+        backend: Union[Backend, BaseSampler],
         grouping: bool = True,
     ):
         super().__init__(
             circuit=circuit,
             observable=observable,
-            backend=ShotBackendWrapper.from_backend(backend),
+            backend=BaseSampler.from_backend(backend),
         )
         self._grouping = grouping
 
@@ -98,12 +98,12 @@ class PauliEstimator(BaseEstimator):
 
         return circuit.copy(), diff_circuits
 
-    def _postprocessing(self, result: Union[ShotResult, dict]) -> EstimatorResult:
+    def _postprocessing(self, result: Union[SamplerResult, dict]) -> EstimatorResult:
         """
         Postprocessing for evaluation of expectation value using pauli rotation gates.
         """
-        if not isinstance(result, ShotResult):
-            raise TypeError(f"result must be ShotResult, not {type(result)}.")
+        if not isinstance(result, SamplerResult):
+            raise TypeError(f"result must be SamplerResult, not {type(result)}.")
 
         data = result.counts
         metadata = result.metadata

@@ -26,9 +26,10 @@ from qiskit.quantum_info import SparsePauliOp, Statevector
 from qiskit.quantum_info.operators.base_operator import BaseOperator
 from qiskit.quantum_info.primitives.framework import BasePrimitive
 
-from ..backends import BaseBackendWrapper, ShotBackendWrapper, ShotResult
-from ..results import CompositeResult, EstimatorArrayResult, EstimatorResult
+from ..backends import BaseBackendWrapper
+from ..results import CompositeResult, EstimatorArrayResult, EstimatorResult, SamplerResult
 from .utils import init_circuit, init_observable
+from ..sampler import BaseSampler
 
 if TYPE_CHECKING:
     from typing import Any
@@ -43,7 +44,7 @@ class BaseEstimator(BasePrimitive, ABC):
         self,
         circuit: Union[QuantumCircuit, Statevector],
         observable: Union[BaseOperator, PauliSumOp],
-        backend: Union[Backend, BaseBackendWrapper, ShotBackendWrapper],
+        backend: Union[Backend, BaseBackendWrapper, BaseSampler],
     ):
         """ """
         super().__init__(backend=backend)
@@ -133,5 +134,5 @@ class BaseEstimator(BasePrimitive, ABC):
         return NotImplemented
 
     @abstractmethod
-    def _postprocessing(self, result: Union[ShotResult, dict]) -> EstimatorResult:
+    def _postprocessing(self, result: Union[SamplerResult, dict]) -> EstimatorResult:
         return NotImplemented

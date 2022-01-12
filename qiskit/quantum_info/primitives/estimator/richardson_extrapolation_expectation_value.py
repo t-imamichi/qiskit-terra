@@ -24,8 +24,7 @@ from qiskit import QuantumCircuit
 from qiskit.pulse import InstructionScheduleMap
 from qiskit.quantum_info import SparsePauliOp
 
-from ..backends import ShotResult
-from ..results import EstimatorResult
+from ..results import EstimatorResult, SamplerResult
 from .base_estimator import BaseEstimator
 
 
@@ -70,7 +69,7 @@ class RichardsonExtrapolationEstimator(BaseEstimator):
             self._transpiled_circuits = sum(transpiled_circuits, [])
         return self._transpiled_circuits
 
-    def _postprocessing(self, result: Union[ShotResult, dict]) -> EstimatorResult:
+    def _postprocessing(self, result: Union[SamplerResult, dict]) -> EstimatorResult:
         expval_length = len(self._expectation_value.transpiled_circuits)
         scales = self._richardson_setting.scales
         c_mat = np.array([[scale ** i for scale in scales] for i in range(len(scales))])

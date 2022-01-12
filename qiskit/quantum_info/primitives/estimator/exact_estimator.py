@@ -27,8 +27,7 @@ from qiskit.quantum_info import SparsePauliOp, Statevector
 from qiskit.quantum_info.operators.base_operator import BaseOperator
 from qiskit.utils import has_aer
 
-from ..backends import ShotResult
-from ..results import EstimatorResult
+from ..results import EstimatorResult, SamplerResult
 from .base_estimator import BaseEstimator
 
 if has_aer():
@@ -67,7 +66,7 @@ class ExactEstimator(BaseEstimator):
         circuit_copy.append(inst, qargs=range(circuit_copy.num_qubits))
         return [circuit_copy]
 
-    def _postprocessing(self, result: Union[dict, ShotResult]) -> EstimatorResult:
+    def _postprocessing(self, result: Union[dict, SamplerResult]) -> EstimatorResult:
 
         # TODO: validate
 

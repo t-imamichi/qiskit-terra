@@ -18,11 +18,11 @@ from __future__ import annotations
 import logging
 from abc import ABC, abstractmethod
 from datetime import datetime, timedelta, timezone
-from typing import TYPE_CHECKING, Generic, TypeVar, Union
+from typing import Union
 
 from qiskit.circuit import QuantumCircuit
 from qiskit.exceptions import MissingOptionalLibraryError
-from qiskit.providers.backend import BackendV1
+from qiskit.providers.backend import BackendV1 as Backend
 from qiskit.result import Counts, Result
 from qiskit.utils.mitigation import (
     CompleteMeasFitter,
@@ -33,19 +33,14 @@ from qiskit.utils.mitigation import (
 
 logger = logging.getLogger(__name__)
 
-if TYPE_CHECKING:
-    from .shot_backend_wrapper import ShotBackendWrapper  # pylint: disable=cyclic-import
 
-T = TypeVar("T")  # pylint: disable=invalid-name
-
-
-class BaseBackendWrapper(ABC, Generic[T]):
+class BaseBackendWrapper(ABC):
     """
     TODO
     """
 
     @abstractmethod
-    def run_and_wait(self, circuits: Union[QuantumCircuit, list[QuantumCircuit]], **options) -> T:
+    def run(self, circuits: Union[QuantumCircuit, list[QuantumCircuit]], **options) -> Result:
         """
         TODO
         """
@@ -53,34 +48,32 @@ class BaseBackendWrapper(ABC, Generic[T]):
 
     @property
     @abstractmethod
-    def backend(self) -> BackendV1:
+    def backend(self) -> Backend:
         """
         TODO
         """
         return NotImplemented
 
 
-class BackendWrapper(BaseBackendWrapper[Result]):
+class BackendWrapper(BaseBackendWrapper):
     """
     TODO
     """
 
-    def __init__(self, backend: BackendV1):
+    def __init__(self, backend: Backend):
         """
         TODO
         """
         self._backend = backend
 
     @property
-    def backend(self) -> BackendV1:
+    def backend(self) -> Backend:
         """
         TODO
         """
         return self._backend
 
-    def run_and_wait(
-        self, circuits: Union[QuantumCircuit, list[QuantumCircuit]], **options
-    ) -> Result:
+    def run(self, circuits: Union[QuantumCircuit, list[QuantumCircuit]], **options) -> Result:
         """
         TODO
         """
@@ -88,20 +81,20 @@ class BackendWrapper(BaseBackendWrapper[Result]):
         return job.result()
 
     @classmethod
-    def from_backend(cls, backend: Union[BackendV1, BaseBackendWrapper]) -> BaseBackendWrapper:
+    def from_backend(cls, backend: Union[Backend, BaseBackendWrapper]) -> BaseBackendWrapper:
         """
         TODO
         """
-        if isinstance(backend, BackendV1):
+        if isinstance(backend, Backend):
             return cls(backend)
         return backend
 
     @staticmethod
-    def to_backend(backend: Union[BackendV1, BaseBackendWrapper, ShotBackendWrapper]) -> BackendV1:
+    def to_backend(backend: Union[Backend, BaseBackendWrapper]) -> Backend:
         """
         TODO
         """
-        if isinstance(backend, BackendV1):
+        if isinstance(backend, Backend):
             return backend
         return backend.backend
 
@@ -111,7 +104,7 @@ class Retry(BaseBackendWrapper):
     TODO
     """
 
-    def __init__(self, backend: BackendV1):
+    def __init__(self, backend: Backend):
         """
         TODO
         """
@@ -148,9 +141,7 @@ class Retry(BaseBackendWrapper):
             except IBMQJobApiError as ex:  # network error, will retry to get a result
                 logger.warning(ex.message)
 
-    def run_and_wait(
-        self, circuits: Union[QuantumCircuit, list[QuantumCircuit]], **options
-    ) -> Result:
+    def run(self, circuits: Union[QuantumCircuit, list[QuantumCircuit]], **options) -> Result:
         """
         TODO
         """
@@ -190,7 +181,7 @@ class ReadoutErrorMitigation(BaseBackendWrapper):
     # https://github.com/Qiskit/qiskit-terra/pull/6485
     def __init__(
         self,
-        backend: Union[BackendV1, BaseBackendWrapper],
+        backend: Union[Backend, BaseBackendWrapper],
         mitigation: str,
         refresh: float,
         shots: int,
@@ -272,11 +263,11 @@ class ReadoutErrorMitigation(BaseBackendWrapper):
         logger.info("readout error mitigation calibration %s at %s", self._mitigation, now)
         if self._mitigation == "tensored":
             meas_calibs, state_labels = tensored_meas_cal(**self._cal_options)
-            cal_results = self._backend.run_and_wait(meas_calibs, shots=self._shots)
+            cal_results = self._backend.run(meas_calibs, shots=self._shots)
             self._meas_fitter[now] = TensoredMeasFitter(cal_results, **self._cal_options)
         elif self._mitigation == "complete":
             meas_calibs, state_labels = complete_meas_cal(**self._cal_options)
-            cal_results = self._backend.run_and_wait(meas_calibs, shots=self._shots)
+            cal_results = self._backend.run(meas_calibs, shots=self._shots)
             self._meas_fitter[now] = CompleteMeasFitter(
                 cal_results, state_labels, **self._cal_options
             )
@@ -320,13 +311,11 @@ class ReadoutErrorMitigation(BaseBackendWrapper):
         """
         return [self._apply_mitigation(result) for result in results]
 
-    def run_and_wait(
-        self, circuits: Union[QuantumCircuit, list[QuantumCircuit]], **options
-    ) -> Result:
+    def run(self, circuits: Union[QuantumCircuit, list[QuantumCircuit]], **options) -> Result:
         """
         TODO
         """
         self._maybe_calibrate()
-        result = self._backend.run_and_wait(circuits, **options)
+        result = self._backend.run(circuits, **options)
         self._maybe_calibrate()
         return result
