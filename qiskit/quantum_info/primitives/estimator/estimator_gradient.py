@@ -20,7 +20,7 @@ from typing import Any, Optional, Union, cast
 
 import numpy as np
 
-from qiskit import QuantumCircuit
+from qiskit.circuit import QuantumCircuit
 
 from ..framework.base_primitive import BasePrimitive, PreprocessedCircuits
 from ..results import CompositeResult, EstimatorGradientResult, EstimatorResult, SamplerResult

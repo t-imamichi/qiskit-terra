@@ -17,7 +17,7 @@ from __future__ import annotations
 import sys
 from typing import Union
 
-from qiskit import QuantumCircuit
+from qiskit.circuit import QuantumCircuit
 from qiskit.providers import BackendV1 as Backend
 
 from ..backends import BaseBackendWrapper

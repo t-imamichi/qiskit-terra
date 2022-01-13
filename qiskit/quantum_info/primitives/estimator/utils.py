@@ -15,7 +15,7 @@ Utility funtions for expectation value classes
 
 from typing import Union
 
-from qiskit import QuantumCircuit
+from qiskit.circuit import QuantumCircuit
 from qiskit.circuit import ParameterExpression
 from qiskit.extensions import Initialize
 from qiskit.opflow import PauliSumOp

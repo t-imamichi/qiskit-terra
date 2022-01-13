@@ -20,18 +20,15 @@ from typing import Any, Optional, Union, cast
 
 import numpy as np
 
-from qiskit import QuantumCircuit, transpile
-from qiskit.providers.backend import BackendV1 as Backend
-from qiskit.providers.options import Options
+from qiskit.circuit import QuantumCircuit
+from qiskit.compiler import transpile
+from qiskit.providers import BackendV1 as Backend
+from qiskit.providers import Options
 from qiskit.result import Result
 
-from ..backends import (
-    BackendWrapper,
-    BaseBackendWrapper,
-)
+from ..backends import BackendWrapper, BaseBackendWrapper
 from ..results import CompositeResult, SamplerResult
 from ..results.base_result import BaseResult
-
 
 PreprocessedCircuits = Union["list[QuantumCircuit]", "tuple[QuantumCircuit, list[QuantumCircuit]]"]
 

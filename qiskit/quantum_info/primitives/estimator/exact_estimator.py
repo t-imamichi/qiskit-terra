@@ -19,7 +19,7 @@ from __future__ import annotations
 
 from typing import Union
 
-from qiskit import QuantumCircuit
+from qiskit.circuit import QuantumCircuit
 from qiskit.exceptions import MissingOptionalLibraryError
 from qiskit.opflow import PauliSumOp
 from qiskit.providers import BackendV1 as Backend

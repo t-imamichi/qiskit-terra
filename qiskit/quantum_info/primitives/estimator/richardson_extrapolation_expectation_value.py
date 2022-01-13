@@ -20,7 +20,7 @@ from typing import Union
 
 import numpy as np
 
-from qiskit import QuantumCircuit
+from qiskit.circuit import QuantumCircuit
 from qiskit.pulse import InstructionScheduleMap
 from qiskit.quantum_info import SparsePauliOp
 
