@@ -21,25 +21,24 @@ from typing import Any, Optional, Union, cast
 import numpy as np
 
 from qiskit import QuantumCircuit, transpile
-from qiskit.providers import BackendV1 as Backend
-from qiskit.providers import Options
+from qiskit.providers.backend import BackendV1 as Backend
+from qiskit.providers.options import Options
 from qiskit.result import Result
 
 from ..backends import (
     BackendWrapper,
     BaseBackendWrapper,
-    ShotBackendWrapper,
-    ShotResult,
 )
-from ..results import CompositeResult
+from ..results import CompositeResult, SamplerResult
 from ..results.base_result import BaseResult
+
 
 PreprocessedCircuits = Union["list[QuantumCircuit]", "tuple[QuantumCircuit, list[QuantumCircuit]]"]
 
 
 class BasePrimitive(ABC):
     """
-    Base class for evaluator.
+    Base class for primitives.
     """
 
     def __init__(
@@ -52,10 +51,7 @@ class BasePrimitive(ABC):
             backend: backend
         """
         self._backend: BaseBackendWrapper
-        if isinstance(backend, ShotBackendWrapper):
-            self._backend = backend
-        else:
-            self._backend = BackendWrapper.from_backend(backend)
+        self._backend = BackendWrapper.from_backend(backend)
         self._run_options = Options()
 
         self._transpile_options = Options()
@@ -187,7 +183,7 @@ class BasePrimitive(ABC):
         run_opts = copy.copy(self.run_options)
         run_opts.update_options(**run_options)
 
-        results = self._backend.run_and_wait(bound_circuits, **run_opts.__dict__)
+        results = self._backend.run(circuits=bound_circuits, **run_opts.__dict__)
 
         if parameters is None or isinstance(parameters, np.ndarray) and parameters.ndim == 1:
             if isinstance(results, Result):
@@ -256,5 +252,5 @@ class BasePrimitive(ABC):
             )
 
     @abstractmethod
-    def _postprocessing(self, result: Union[ShotResult, dict]) -> BaseResult:
+    def _postprocessing(self, result: Union[SamplerResult, dict]) -> BaseResult:
         return NotImplemented

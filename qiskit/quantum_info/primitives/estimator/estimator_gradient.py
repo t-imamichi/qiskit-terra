@@ -22,9 +22,8 @@ import numpy as np
 
 from qiskit import QuantumCircuit
 
-from ..backends import ShotResult
 from ..framework.base_primitive import BasePrimitive, PreprocessedCircuits
-from ..results import CompositeResult, EstimatorGradientResult, EstimatorResult
+from ..results import CompositeResult, EstimatorGradientResult, EstimatorResult, SamplerResult
 from .base_estimator import BaseEstimator
 
 
@@ -91,7 +90,7 @@ class BaseEstimatorGradient(BasePrimitive, ABC):
         results = cast(CompositeResult, super().run(param_array, **run_options))
         return self._compute_gradient(results, parameters.shape)
 
-    def _postprocessing(self, result: Union[ShotResult, dict]) -> EstimatorResult:
+    def _postprocessing(self, result: Union[SamplerResult, dict]) -> EstimatorResult:
         return self._estimator._postprocessing(result)
 
 

@@ -20,7 +20,8 @@ from typing import Union
 from qiskit import QuantumCircuit
 from qiskit.providers import BackendV1 as Backend
 
-from ..backends import BaseBackendWrapper, ShotBackendWrapper, ShotResult
+from ..backends import BaseBackendWrapper
+from ..results import SamplerResult
 from ..results.base_result import BaseResult
 from .base_primitive import BasePrimitive
 
@@ -33,7 +34,7 @@ else:
 class Postprocessing(Protocol):
     """Postprocessing Callback Protocol (PEP544)"""
 
-    def __call__(self, result: Union[ShotResult, dict]) -> BaseResult:
+    def __call__(self, result: Union[SamplerResult, dict]) -> BaseResult:
         ...
 
 
@@ -46,7 +47,7 @@ class TranspiledCircuitPrimitive(BasePrimitive):
         self,
         transpiled_circuits: list[QuantumCircuit],
         postprocessing: Postprocessing,
-        backend: Union[Backend, BaseBackendWrapper, ShotBackendWrapper],
+        backend: Union[Backend, BaseBackendWrapper],
     ):
         """
         Args:

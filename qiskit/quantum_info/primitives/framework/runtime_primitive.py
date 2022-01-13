@@ -24,9 +24,8 @@ import numpy as np
 from qiskit.exceptions import QiskitError
 from qiskit.utils.backend_utils import has_aer, has_ibmq
 
-from ..backends import ShotResult
 from ..estimator import BaseEstimator, PauliEstimator
-from ..results import EstimatorArrayResult, EstimatorResult
+from ..results import EstimatorArrayResult, EstimatorResult, SamplerResult
 from ..results.base_result import BaseResult
 from .base_primitive import BasePrimitive, PreprocessedCircuits
 
@@ -104,7 +103,7 @@ class RuntimePrimitive(BasePrimitive):
     def preprocessed_circuits(self) -> PreprocessedCircuits:
         return self._evaluator.preprocessed_circuits
 
-    def _postprocessing(self, result: Union[ShotResult, dict]) -> BaseResult:
+    def _postprocessing(self, result: Union[SamplerResult, dict]) -> BaseResult:
         return self._evaluator._postprocessing(result)
 
 

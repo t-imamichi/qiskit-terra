@@ -10,9 +10,10 @@
 # copyright notice, and modified files need to carry a notice indicating
 # that they have been altered from the originals.
 
-"""Result classes for evaluators."""
+"""Result classes for primitives."""
 
 from .composite_result import CompositeResult
 from .estiamtor_result import EstimatorResult
 from .estimator_array_result import EstimatorArrayResult
 from .estimator_gradient_result import EstimatorGradientResult
+from .sampler_result import SamplerResult

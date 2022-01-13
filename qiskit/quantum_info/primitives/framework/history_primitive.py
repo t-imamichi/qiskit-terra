@@ -18,8 +18,8 @@ from typing import Any, Optional, Union
 
 import numpy as np
 
-from ..backends import ShotResult
 from ..results.base_result import BaseResult
+from ..results import SamplerResult
 from .base_primitive import BasePrimitive, PreprocessedCircuits
 
 
@@ -70,5 +70,5 @@ class HistoryPrimitive(BasePrimitive):
     def transpiled_circuits(self):
         return self._evaluator.transpiled_circuits
 
-    def _postprocessing(self, result: Union[ShotResult, dict]) -> BaseResult:
+    def _postprocessing(self, result: Union[SamplerResult, dict]) -> BaseResult:
         return self._evaluator._postprocessing(result)
