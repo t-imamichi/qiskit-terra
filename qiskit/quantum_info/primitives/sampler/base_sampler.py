@@ -91,12 +91,7 @@ class BaseSampler(BasePrimitive, ABC):
         if "circuits" in run_options:
             self._circuits = run_options["circuits"]
             del run_options["circuits"]
-        if "shots" in run_options:
-            shots = run_options["shots"]
-            del run_options["shots"]
-        else:
-            shots = self._backend.backend.options.shots
-        raw_results = [super().run(shots=shots, **run_options)]
+        raw_results = [super().run(parameters, **run_options)]
         counts = self._get_counts(raw_results)
         metadata = [res.header.metadata for result in raw_results for res in result.results]
         return SamplerResult(
