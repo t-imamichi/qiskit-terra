@@ -16,7 +16,9 @@ from __future__ import annotations
 
 from abc import ABC
 from collections import Counter
-from typing import Optional, Union
+from typing import Any, Optional, Union
+
+import numpy as np
 
 from qiskit.circuit import QuantumCircuit
 from qiskit.exceptions import QiskitError
@@ -70,9 +72,20 @@ class BaseSampler(BasePrimitive, ABC):
     def circuits(self, circuits: Union[QuantumCircuit, list[QuantumCircuit]]):
         self._circuits = circuits if isinstance(circuits, list) else [circuits]
 
+    @property
+    def preprocessed_circuits(self) -> Optional[list[QuantumCircuit]]:
+        return self._circuits
+
     # pylint: disable=arguments-differ
     def run(
         self,
+        parameters: Optional[
+            Union[
+                list[float],
+                list[list[float]],
+                np.ndarray[Any, np.dtype[np.float64]],
+            ]
+        ] = None,
         **run_options,
     ) -> Union[SamplerResult]:
         if "circuits" in run_options:
@@ -83,7 +96,7 @@ class BaseSampler(BasePrimitive, ABC):
             del run_options["shots"]
         else:
             shots = self._backend.backend.options.shots
-        raw_results = [self._backend.run(self._circuits, shots=shots, **run_options)]
+        raw_results = [super().run(shots=shots, **run_options)]
         counts = self._get_counts(raw_results)
         metadata = [res.header.metadata for result in raw_results for res in result.results]
         return SamplerResult(
@@ -132,4 +145,4 @@ class BaseSampler(BasePrimitive, ABC):
 
     def _postprocessing(self, result: Union[SamplerResult, dict]) -> BaseResult:
         """TODO"""
-        pass
+        return result
