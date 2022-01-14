@@ -81,7 +81,6 @@ class TestBaseSampler(QiskitTestCase):
                 else:
                     self.assertAlmostEqual(t_val, 0, places=1)
 
-    @unittest.skip  # need transpile in Sampler to unroll gates into basis gates of BasicAer
     @combine(indices=[0, 1, [0, 1]], shots=[1000, 2000])
     def test_evaluate_basicaer(self, indices, shots):
         """test for evaluate"""

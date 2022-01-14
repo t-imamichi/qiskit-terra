@@ -183,7 +183,7 @@ class BasePrimitive(ABC):
         results = self._backend.run(circuits=bound_circuits, **run_opts.__dict__)
 
         if parameters is None or isinstance(parameters, np.ndarray) and parameters.ndim == 1:
-            if isinstance(results, Result):
+            if False and isinstance(results, Result):
                 ret_result = self._postprocessing(results.data(0))
             else:
                 ret_result = self._postprocessing(results)
