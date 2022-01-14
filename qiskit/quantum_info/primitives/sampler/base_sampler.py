@@ -16,7 +16,9 @@ from __future__ import annotations
 
 from abc import ABC
 from collections import Counter
-from typing import Optional, Union
+from typing import Any, Optional, Union
+
+import numpy as np
 
 from qiskit.circuit import QuantumCircuit
 from qiskit.exceptions import QiskitError
@@ -73,6 +75,13 @@ class BaseSampler(BasePrimitive, ABC):
     # pylint: disable=arguments-differ
     def run(
         self,
+        parameters: Optional[
+            Union[
+                list[float],
+                list[list[float]],
+                np.ndarray[Any, np.dtype[np.float64]],
+            ]
+        ] = None,
         **run_options,
     ) -> Union[SamplerResult]:
         if "circuits" in run_options:
