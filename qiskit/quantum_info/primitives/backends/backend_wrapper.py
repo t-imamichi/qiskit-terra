@@ -18,18 +18,12 @@ from __future__ import annotations
 import logging
 from abc import ABC, abstractmethod
 from datetime import datetime, timedelta, timezone
-from typing import Union
+from typing import TYPE_CHECKING, Union
 
 from qiskit.circuit import QuantumCircuit
 from qiskit.exceptions import MissingOptionalLibraryError
 from qiskit.providers.backend import BackendV1 as Backend
-from qiskit.result import Counts, Result
-from qiskit.utils.mitigation import (
-    CompleteMeasFitter,
-    TensoredMeasFitter,
-    complete_meas_cal,
-    tensored_meas_cal,
-)
+from qiskit.result import BaseReadoutMitigator, Counts, Result
 
 logger = logging.getLogger(__name__)
 
@@ -177,45 +171,35 @@ class ReadoutErrorMitigation(BaseBackendWrapper):
     TODO
     """
 
-    # TODO: need to move to the new mitigator class in the future
-    # https://github.com/Qiskit/qiskit-terra/pull/6485
     def __init__(
         self,
-        backend: Union[Backend, BaseBackendWrapper],
-        mitigation: str,
+        backend: Backend,
+        method: str,
         refresh: float,
-        shots: int,
+        qubits: list[int],
         **cal_options,
     ):
         """
         TODO
         """
-        self._backend = BackendWrapper.from_backend(backend)
-        self._mitigation = mitigation
+        self._backend = backend
+        if method not in ["mthree", "local", "correlated"]:
+            raise ValueError(f"Unsupported mitigation method: '{method}'")
+        self._method = method
         self._refresh = timedelta(seconds=refresh)
-        self._shots = shots
         self._time_threshold = datetime.min.replace(tzinfo=timezone.utc)
+        self._qubits = qubits
         self._cal_options = cal_options
 
-        try:
+        if TYPE_CHECKING:
             from mthree import M3Mitigation
-        except ImportError as ex:
-            raise MissingOptionalLibraryError(
-                libname="mthree",
-                name="execute",
-                pip_install="pip install mthree",
-            ) from ex
-        self._meas_fitter: dict[
-            datetime, Union[CompleteMeasFitter, TensoredMeasFitter, M3Mitigation]
-        ] = {}
+        self._mitigators: dict[datetime, Union[BaseReadoutMitigator, M3Mitigation]] = {}
 
     @property
     def backend(self):
         """
         TODO
         """
-        if isinstance(self._backend, BaseBackendWrapper):
-            return self._backend.backend
         return self._backend
 
     @property
@@ -223,7 +207,7 @@ class ReadoutErrorMitigation(BaseBackendWrapper):
         """
         TODO
         """
-        return self._mitigation
+        return self._method
 
     @property
     def refresh(self):
@@ -239,19 +223,12 @@ class ReadoutErrorMitigation(BaseBackendWrapper):
         """
         return self._cal_options
 
-    @property
-    def shots(self):
-        """
-        TODO
-        """
-        return self._shots
-
     @staticmethod
     def _datetime(data):
         """
         TODO
         """
-        # Aer's result.date is str without tzinfo, but IBMQ's result.date is datetime with tzinfo
+        # Note: Aer's result.date is str without tzinfo, but IBMQ's result.date is datetime with tzinfo
         if isinstance(data, str):
             return datetime.fromisoformat(data).astimezone()
         return data
@@ -260,18 +237,8 @@ class ReadoutErrorMitigation(BaseBackendWrapper):
         now = datetime.now(timezone.utc).astimezone()
         if now <= self._time_threshold:
             return
-        logger.info("readout error mitigation calibration %s at %s", self._mitigation, now)
-        if self._mitigation == "tensored":
-            meas_calibs, state_labels = tensored_meas_cal(**self._cal_options)
-            cal_results = self._backend.run(meas_calibs, shots=self._shots)
-            self._meas_fitter[now] = TensoredMeasFitter(cal_results, **self._cal_options)
-        elif self._mitigation == "complete":
-            meas_calibs, state_labels = complete_meas_cal(**self._cal_options)
-            cal_results = self._backend.run(meas_calibs, shots=self._shots)
-            self._meas_fitter[now] = CompleteMeasFitter(
-                cal_results, state_labels, **self._cal_options
-            )
-        elif self._mitigation == "mthree":
+        logger.info("readout error mitigation calibration %s at %s", self._method, now)
+        if self._method == "mthree":
             try:
                 from mthree import M3Mitigation
             except ImportError as ex:
@@ -280,30 +247,44 @@ class ReadoutErrorMitigation(BaseBackendWrapper):
                     name="execute",
                     pip_install="pip install mthree",
                 ) from ex
-            mit = M3Mitigation(self._backend.backend)
-            mit.cals_from_system(shots=self._shots, **self._cal_options)
-            self._meas_fitter[now] = mit
+            mit = M3Mitigation(self._backend)
+            mit.cals_from_system(qubits=self._qubits, **self._cal_options)
+            self._mitigators[now] = mit
+        elif self._method in ["local", "correlated"]:
+            try:
+                from qiskit_experiments.library import ReadoutMitigationExperiment
+            except ImportError as ex:
+                raise MissingOptionalLibraryError(
+                    libname="qiskit_experiments>=0.3.0",
+                    name="execute",
+                    pip_install="pip install qiskit-experiments",
+                ) from ex
+
+            exp = ReadoutMitigationExperiment(qubits=self._qubits, method=self._method)
+            result = exp.run(self._backend, **self._cal_options).block_for_results()
+            mit = result.analysis_results(0).value
+            self._mitigators[now] = mit
         self._time_threshold = now + self._refresh
 
     def _apply_mitigation(self, result: Result) -> list[Counts]:
         result_dt = self._datetime(result.date)
-        fitters = [
-            (abs(date - result_dt), date, fitter) for date, fitter in self._meas_fitter.items()
+        mitigators = [
+            (abs(date - result_dt), date, mitigator) for date, mitigator in self._mitigators.items()
         ]
-        _, min_date, min_fitter = min(fitters, key=lambda e: e[0])
+        _, min_date, mitigator = min(mitigators, key=lambda e: e[0])
         logger.info("apply mitigation data at %s", min_date)
-        if self._mitigation in ["complete", "tensored"]:
-            return min_fitter.filter.apply(result).get_counts()
+        counts = result.get_counts()
+        if isinstance(counts, Counts):
+            counts = [counts]
+        shots = [count.shots() for count in counts]
+        if self._method == "mthree":
+            quasis = mitigator.apply_correction(counts, self._qubits)  # type: ignore
         else:
-            counts = result.get_counts()
-            quasis = min_fitter.apply_correction(counts, self._cal_options["qubits"])  # type: ignore
-            ret = []
-            if isinstance(counts, list):
-                for quasi, shots in zip(quasis, quasis.shots):
-                    ret.append(Counts({key: val * shots for key, val in quasi.items()}))
-            else:
-                ret.append(Counts({key: val * quasis.shots for key, val in quasis.items()}))
-            return ret
+            quasis = [mitigator.quasi_probabilities(count, self._qubits) for count in counts]
+        ret = []
+        for quasi, shot in zip(quasis, shots):
+            ret.append(Counts({key: val * shot for key, val in quasi.items()}))
+        return ret
 
     def apply_mitigation(self, results: list[Result]) -> list[list[Counts]]:
         """
@@ -316,6 +297,6 @@ class ReadoutErrorMitigation(BaseBackendWrapper):
         TODO
         """
         self._maybe_calibrate()
-        result = self._backend.run(circuits, **options)
+        result = self._backend.run(circuits, **options).result()
         self._maybe_calibrate()
         return result
