@@ -31,3 +31,4 @@ jax;platform_system != 'Windows'
 jaxlib;platform_system != 'Windows'
 docplex
 mthree
+qiskit_experiments>=0.3.0

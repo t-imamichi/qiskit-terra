@@ -13,6 +13,9 @@
 """Tests for ReadoutErrorMitigation."""
 
 import unittest
+from test import combine
+
+from ddt import ddt
 
 from qiskit.circuit.library import RealAmplitudes
 from qiskit.opflow import PauliSumOp
@@ -26,6 +29,7 @@ if has_aer():
     from qiskit import Aer
 
 
+@ddt
 class TestReadoutErrorMitigation(QiskitTestCase):
     """Test ReadoutErrorMitigation"""
 
@@ -43,37 +47,20 @@ class TestReadoutErrorMitigation(QiskitTestCase):
         )
 
     @unittest.skipUnless(has_aer(), "qiskit-aer doesn't appear to be installed.")
-    def test_tensored_mitigation(self):
-        """test for tensored mitigation"""
+    @combine(method=["local", "correlated", "mthree"])
+    def test_readout_error_mitigation(self, method):
+        """test for readout error mitigation"""
         backend = Aer.get_backend("aer_simulator").from_backend(FakeBogota())
         backend.set_options(seed_simulator=15)
-        mit_tensored = ReadoutErrorMitigation(
+        mit = ReadoutErrorMitigation(
             backend,
-            mitigation="tensored",
-            refresh=600,
-            shots=1000,
-            mit_pattern=[[0], [1]],
-        )
-        with PauliEstimator(self.ansatz, self.observable, backend=mit_tensored) as est:
-            est.set_transpile_options(seed_transpiler=15)
-            est.set_run_options(seed_simulator=15)
-            result = est([0, 1, 1, 2, 3, 5])
-        self.assertAlmostEqual(result.value, -1.30857452503)
-
-    @unittest.skipUnless(has_aer(), "qiskit-aer doesn't appear to be installed.")
-    def test_mthree_mitigation(self):
-        """tett for mthree mitigator"""
-        backend = Aer.get_backend("aer_simulator").from_backend(FakeBogota())
-        backend.set_options(seed_simulator=15)
-        mit_mthree = ReadoutErrorMitigation(
-            backend,
-            mitigation="mthree",
+            method=method,
             refresh=600,
             shots=1000,
             qubits=[0, 1],
         )
-        with PauliEstimator(self.ansatz, self.observable, backend=mit_mthree) as est:
+        with PauliEstimator(self.ansatz, self.observable, backend=mit) as est:
             est.set_transpile_options(seed_transpiler=15)
             est.set_run_options(seed_simulator=15)
             result = est([0, 1, 1, 2, 3, 5])
-        self.assertAlmostEqual(result.value, -1.3032236892)
+        self.assertAlmostEqual(result.value, -1.305, places=2)
