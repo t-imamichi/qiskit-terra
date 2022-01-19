@@ -25,10 +25,9 @@ from qiskit.opflow import AbelianGrouper, PauliSumOp
 from qiskit.providers import BackendV1 as Backend
 from qiskit.quantum_info import SparsePauliOp, Statevector
 from qiskit.quantum_info.operators.base_operator import BaseOperator
-from qiskit.result import Counts
+from qiskit.result import Counts, Result
 
-from ..sampler import BaseSampler
-from ..results import EstimatorResult, SamplerResult
+from ..results import EstimatorResult
 from .base_estimator import BaseEstimator
 
 logger = logging.getLogger(__name__)
@@ -43,13 +42,13 @@ class PauliEstimator(BaseEstimator):
         self,
         circuit: Union[QuantumCircuit, Statevector],
         observable: Union[BaseOperator, PauliSumOp],
-        backend: Union[Backend, BaseSampler],
+        backend: Backend,
         grouping: bool = True,
     ):
         super().__init__(
             circuit=circuit,
             observable=observable,
-            backend=BaseSampler.from_backend(backend),
+            backend=backend,
         )
         self._grouping = grouping
 
@@ -98,15 +97,16 @@ class PauliEstimator(BaseEstimator):
 
         return circuit.copy(), diff_circuits
 
-    def _postprocessing(self, result: Union[SamplerResult, dict]) -> EstimatorResult:
+    def _postprocessing(self, result: Result) -> EstimatorResult:
         """
         Postprocessing for evaluation of expectation value using pauli rotation gates.
         """
-        if not isinstance(result, SamplerResult):
-            raise TypeError(f"result must be SamplerResult, not {type(result)}.")
-
-        data = result.counts
-        metadata = result.metadata
+        if isinstance(result, Result):
+            data = self._get_counts([result])
+            metadata = [res.header.metadata for res in result.results]
+        else:
+            data = [Counts(res.to_dict()["data"]["counts"]) for res in result]
+            metadata = [res.header.to_dict()["metadata"] for res in result]
 
         combined_expval = 0.0
         combined_variance = 0.0

@@ -82,8 +82,8 @@ class TestBaseSampler(QiskitTestCase):
         if not isinstance(target, list):
             target = [target]
         self.assertEqual(len(prob), len(target))
-        for p, t in zip(prob, target):
-            for key, t_val in t.items():
+        for p, targ in zip(prob, target):
+            for key, t_val in targ.items():
                 if key in p:
                     self.assertAlmostEqual(p[key], t_val, places=1)
                 else:
@@ -93,7 +93,7 @@ class TestBaseSampler(QiskitTestCase):
     def test_evaluate_basicaer(self, indices, shots):
         """test for evaluate"""
         backend = BasicAer.get_backend("qasm_simulator")
-        circuits, target = self._generate_circuits_target(indices)
+        circuits, _ = self._generate_circuits_target(indices)
         with self.subTest("with-guard"):
             with BaseSampler(circuits=circuits, backend=backend) as sampler:
                 result: SamplerResult = sampler(shots=shots, **self._run_config)

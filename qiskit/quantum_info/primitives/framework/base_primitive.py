@@ -16,18 +16,24 @@ from __future__ import annotations
 
 import copy
 from abc import ABC, abstractmethod
+from collections import Counter
 from typing import Any, Optional, Union, cast
 
 import numpy as np
 
 from qiskit.circuit import QuantumCircuit
 from qiskit.compiler import transpile
+from qiskit.exceptions import QiskitError
 from qiskit.providers import BackendV1 as Backend
 from qiskit.providers import Options
-from qiskit.result import Result
+from qiskit.result import Counts, Result
 
-from ..backends import BackendWrapper, BaseBackendWrapper
-from ..results import CompositeResult, SamplerResult
+from ..backends import (
+    BackendWrapper,
+    BaseBackendWrapper,
+    ReadoutErrorMitigation,
+)
+from ..results import CompositeResult
 from ..results.base_result import BaseResult
 
 PreprocessedCircuits = Union["list[QuantumCircuit]", "tuple[QuantumCircuit, list[QuantumCircuit]]"]
@@ -183,15 +189,18 @@ class BasePrimitive(ABC):
         results = self._backend.run(circuits=bound_circuits, **run_opts.__dict__)
 
         if parameters is None or isinstance(parameters, np.ndarray) and parameters.ndim == 1:
-            if False and isinstance(results, Result):
-                ret_result = self._postprocessing(results.data(0))
-            else:
-                ret_result = self._postprocessing(results)
+            ret_result = self._postprocessing(results)
         else:
-
             if isinstance(results, Result):
                 postprocessed = [
-                    self._postprocessing(results.data(i)) for i in range(len(parameters))
+                    self._postprocessing(
+                        results.results[
+                            i
+                            * len(self.transpiled_circuits) : (i + 1)
+                            * len(self.transpiled_circuits)
+                        ]
+                    )
+                    for i in range(len(parameters))
                 ]
             else:
                 postprocessed = [
@@ -249,5 +258,32 @@ class BasePrimitive(ABC):
             )
 
     @abstractmethod
-    def _postprocessing(self, result: Union[SamplerResult, dict]) -> BaseResult:
+    def _postprocessing(self, result: Result) -> BaseResult:
         return NotImplemented
+
+    def _get_counts(self, results: list[Result]) -> list[Counts]:
+        """
+        Convert Result to Counts
+
+        Returns:
+            list of counts
+        Raises:
+            QiskitError: if inputs are empty
+        """
+        if len(results) == 0:
+            raise QiskitError("Empty result")
+        if isinstance(self._backend, ReadoutErrorMitigation):
+            list_counts = self._backend.apply_mitigation(results)
+        else:
+            list_counts = [result.get_counts() for result in results]
+        num_circuits = len(self.transpiled_circuits)
+        counters: list[Counter] = [Counter() for _ in range(num_circuits)]
+        i = 0
+        for counts in list_counts:
+            if isinstance(counts, Counts):
+                counts = [counts]
+            for count in counts:
+                counters[i % num_circuits].update(count)
+                i += 1
+        # TODO: recover the metadata of Counts
+        return [Counts(c) for c in counters]

@@ -25,6 +25,7 @@ from qiskit.opflow import PauliSumOp
 from qiskit.providers import BackendV1 as Backend
 from qiskit.quantum_info import SparsePauliOp, Statevector
 from qiskit.quantum_info.operators.base_operator import BaseOperator
+from qiskit.result import Result
 from qiskit.utils import has_aer
 
 from ..results import EstimatorResult, SamplerResult
@@ -66,9 +67,12 @@ class ExactEstimator(BaseEstimator):
         circuit_copy.append(inst, qargs=range(circuit_copy.num_qubits))
         return [circuit_copy]
 
-    def _postprocessing(self, result: Union[dict, SamplerResult]) -> EstimatorResult:
+    def _postprocessing(self, result: Union[dict, SamplerResult, Result]) -> EstimatorResult:
 
         # TODO: validate
 
-        expval, variance = result["expectation_value_variance"]
+        if isinstance(result, Result):
+            expval, variance = result.data(0)["expectation_value_variance"]
+        else:
+            expval, variance = result[0].to_dict()["data"]["expectation_value_variance"]
         return EstimatorResult(expval, variance, None)

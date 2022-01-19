@@ -18,23 +18,24 @@ from typing import Any, Optional, Union
 
 import numpy as np
 
+from qiskit.result import Result
+
 from ..results.base_result import BaseResult
-from ..results import SamplerResult
 from .base_primitive import BasePrimitive, PreprocessedCircuits
 
 
 class HistoryPrimitive(BasePrimitive):
-    """Evaluator with history"""
+    """Primitive with history"""
 
-    def __init__(self, evaluator: BasePrimitive):
+    def __init__(self, primitive: BasePrimitive):
         """
         Args:
-            evaluator:
+            primitive:
         """
         super().__init__(
-            backend=evaluator._backend, transpile_options=evaluator.transpile_options.__dict__
+            backend=primitive._backend, transpile_options=primitive.transpile_options.__dict__
         )
-        self._evaluator = evaluator
+        self._primitive = primitive
         self._history: list[BaseResult] = []
 
     @property
@@ -64,11 +65,11 @@ class HistoryPrimitive(BasePrimitive):
 
     @property
     def preprocessed_circuits(self) -> PreprocessedCircuits:
-        return self._evaluator.preprocessed_circuits
+        return self._primitive.preprocessed_circuits
 
     @property
     def transpiled_circuits(self):
-        return self._evaluator.transpiled_circuits
+        return self._primitive.transpiled_circuits
 
-    def _postprocessing(self, result: Union[SamplerResult, dict]) -> BaseResult:
-        return self._evaluator._postprocessing(result)
+    def _postprocessing(self, result: Result) -> BaseResult:
+        return self._primitive._postprocessing(result)

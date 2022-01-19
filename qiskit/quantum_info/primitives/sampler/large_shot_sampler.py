@@ -124,7 +124,7 @@ class LargeShotSampler(BaseSampler):
         return ret
 
     # pylint: disable=arguments-differ
-    def run(
+    def run(  # type: ignore
         self,
         append: bool = False,
         exact_shots: bool = True,

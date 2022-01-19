@@ -23,8 +23,9 @@ import numpy as np
 from qiskit.circuit import QuantumCircuit
 from qiskit.pulse import InstructionScheduleMap
 from qiskit.quantum_info import SparsePauliOp
+from qiskit.result import Result
 
-from ..results import EstimatorResult, SamplerResult
+from ..results import EstimatorResult
 from .base_estimator import BaseEstimator
 
 
@@ -69,7 +70,7 @@ class RichardsonExtrapolationEstimator(BaseEstimator):
             self._transpiled_circuits = sum(transpiled_circuits, [])
         return self._transpiled_circuits
 
-    def _postprocessing(self, result: Union[SamplerResult, dict]) -> EstimatorResult:
+    def _postprocessing(self, result: Result) -> EstimatorResult:
         expval_length = len(self._expectation_value.transpiled_circuits)
         scales = self._richardson_setting.scales
         c_mat = np.array([[scale ** i for scale in scales] for i in range(len(scales))])
@@ -79,7 +80,7 @@ class RichardsonExtrapolationEstimator(BaseEstimator):
         raw_results = []
         for i, (coeff, scale) in enumerate(zip(coeffs, scales)):
             expval_result = self._expectation_value._postprocessing(
-                result[i * expval_length : (i + 1) * expval_length]
+                result[i * expval_length : (i + 1) * expval_length]  # type: ignore
             )
             raw_results.append({"expectation_value_result": expval_result, "scale": scale})
             value += coeff * expval_result.value

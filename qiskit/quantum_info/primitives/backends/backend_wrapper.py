@@ -140,7 +140,10 @@ class Retry(BaseBackendWrapper):
         TODO
         """
         try:
-            from qiskit.providers.ibmq.job import IBMQJobFailureError, IBMQJobInvalidStateError
+            from qiskit.providers.ibmq.job import (
+                IBMQJobFailureError,
+                IBMQJobInvalidStateError,
+            )
         except ImportError as ex:
             raise MissingOptionalLibraryError(
                 libname="qiskit-ibmq-provider",
