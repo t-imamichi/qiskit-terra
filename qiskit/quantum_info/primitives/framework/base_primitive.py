@@ -56,6 +56,7 @@ class BasePrimitive(ABC):
         self._backend: BaseBackendWrapper
         self._backend = BackendWrapper.from_backend(backend)
         self._run_options = Options()
+        self._is_closed = False
 
         self._transpile_options = Options()
         if transpile_options is not None:
@@ -68,7 +69,7 @@ class BasePrimitive(ABC):
         return self
 
     def __exit__(self, ex_type, ex_value, trace):
-        del self
+        self._is_closed = True
 
     def __call__(
         self,
@@ -110,10 +111,15 @@ class BasePrimitive(ABC):
     def set_transpile_options(self, **fields) -> BasePrimitive:
         """Set the transpiler options for transpiler.
         Args:
-            fields: The fields to update the options
+            fields: The fields to update the options.
         Returns:
-            self
+            self.
+        Raises:
+            QiskitError: if the instance has been closed.
         """
+        if self._is_closed:
+            raise QiskitError("The primitive has been closed.")
+
         self._transpile_options.update_options(**fields)
         return self
 
@@ -133,7 +139,11 @@ class BasePrimitive(ABC):
 
         Returns:
             List of the transpiled quantum circuit
+        Raises:
+            QiskitError: if the instance has been closed.
         """
+        if self._is_closed:
+            raise QiskitError("The primitive has been closed.")
         return self._preprocessed_circuits
 
     @property
@@ -143,7 +153,11 @@ class BasePrimitive(ABC):
 
         Returns:
             List of the transpiled quantum circuit
+        Raises:
+            QiskitError: if the instance has been closed.
         """
+        if self._is_closed:
+            raise QiskitError("The primitive has been closed.")
         if self._transpiled_circuits is None:
             self._transpile()
         return self._transpiled_circuits
@@ -160,8 +174,14 @@ class BasePrimitive(ABC):
         **run_options,
     ) -> BaseResult:
         """
-        TODO
+        Returns:
+            The running result.
+        Raises:
+            QiskitError: if the instance has been closed.
+            TypeError: if the shape of parameters is invalid.
         """
+        if self._is_closed:
+            raise QiskitError("The primitive has been closed.")
         # Bind parameters
         # TODO: support Aer parameter bind after https://github.com/Qiskit/qiskit-aer/pull/1317
         if parameters is None:

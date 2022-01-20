@@ -26,8 +26,8 @@ import inspect
 import logging
 import os
 import sys
-import warnings
 import unittest
+import warnings
 from unittest.util import safe_repr
 
 try:
@@ -40,7 +40,6 @@ except ImportError:
 
 from .decorators import enforce_subclasses_call
 from .utils import Path, setup_test_logging
-
 
 __unittest = True  # Allows shorter stack trace for .assertDictAlmostEqual
 
@@ -61,7 +60,6 @@ if HAS_FIXTURES:
         # our tests work as expected.
         assertRaises = unittest.TestCase.assertRaises
         assertEqual = unittest.TestCase.assertEqual
-
 
 else:
 
