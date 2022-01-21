@@ -44,10 +44,10 @@ class OpflowGradient(BaseEstimatorGradient):
         if self._grad:
             return
 
-        expval = self._estimator
-        op = CircuitStateFn(expval.circuit)
+        estimator = self._estimator
+        op = CircuitStateFn(estimator.circuits[0])
         grad = cast(ListOp, Gradient(self._grad_method).convert(op))
-        assert len(grad.oplist) == len(expval.circuit.parameters)
+        assert len(grad.oplist) == len(estimator.circuits[0].parameters)
 
         def extract_circuits(list_op: ListOp):
             lst = []
@@ -55,11 +55,11 @@ class OpflowGradient(BaseEstimatorGradient):
                 mul = 2
                 for i, op in enumerate(list_op.oplist):
                     op = cast(CircuitStateFn, op)
-                    observable = expval.observable.expand(Pauli_Z)
-                    new_expval = expval.__class__(
-                        circuit=op.primitive, observable=observable, backend=expval.backend
+                    observable = estimator.observables[0].expand(Pauli_Z)
+                    new_estimator = estimator.__class__(
+                        circuits=[op.primitive], observables=[observable], backend=estimator.backend
                     )
-                    lst.append((mul * list_op.coeff * op.coeff ** 2, new_expval))  # type: ignore
+                    lst.append((mul * list_op.coeff * op.coeff ** 2, new_estimator))  # type: ignore
             elif self._grad_method in ["param_shift", "fin_diff"]:
                 if "shift_constant" in list_op.combo_fn.keywords:  # type: ignore
                     mul = list_op.combo_fn.keywords["shift_constant"]  # type: ignore
@@ -67,11 +67,11 @@ class OpflowGradient(BaseEstimatorGradient):
                     mul = 1
                 for i, op in enumerate(list_op.oplist):
                     op = cast(CircuitStateFn, op)
-                    observable = (-1) ** i * expval.observable
-                    new_expval = expval.__class__(
-                        circuit=op.primitive, observable=observable, backend=expval.backend
+                    observable = (-1) ** i * estimator.observables[0]
+                    new_estimator = estimator.__class__(
+                        circuits=[op.primitive], observables=[observable], backend=estimator.backend
                     )
-                    lst.append((mul * list_op.coeff * op.coeff ** 2, new_expval))  # type: ignore
+                    lst.append((mul * list_op.coeff * op.coeff ** 2, new_estimator))  # type: ignore
             else:
                 raise QiskitError(
                     f"internal error: unsupported gradient method {self._grad_method}"
@@ -116,7 +116,7 @@ class OpflowGradient(BaseEstimatorGradient):
         num_param_sets = 1 if parameters.ndim == 1 else parameters.shape[0]
 
         param_map = {}
-        for j, param in enumerate(self._estimator.circuit.parameters):
+        for j, param in enumerate(self._estimator.circuits[0].parameters):
             if parameters.ndim == 1:
                 param_map[param, 0] = parameters[j]
             else:

@@ -63,7 +63,7 @@ class TestGradient(QiskitTestCase):
     def test_fin_diff(self):
         """test for FiniteDiffGradient"""
         backend = Aer.get_backend("aer_simulator")
-        with ExactEstimator(self.ansatz, self.observable, backend=backend) as est:
+        with ExactEstimator([self.ansatz], [self.observable], backend=backend) as est:
             with FiniteDiffGradient(est, 1e-8) as grad:
                 result = grad(self.parameters)
         self.assertIsInstance(result, EstimatorGradientResult)
@@ -77,7 +77,7 @@ class TestGradient(QiskitTestCase):
     def test_param_shift(self):
         """test for ParameterShiftGradient"""
         backend = Aer.get_backend("aer_simulator")
-        with ExactEstimator(self.ansatz, self.observable, backend=backend) as est:
+        with ExactEstimator([self.ansatz], [self.observable], backend=backend) as est:
             with ParameterShiftGradient(est) as grad:
                 result = grad(self.parameters)
         self.assertIsInstance(result, EstimatorGradientResult)
@@ -92,7 +92,7 @@ class TestGradient(QiskitTestCase):
     def test_opflow_gradient(self, method):
         """test for OpflowGradient"""
         backend = Aer.get_backend("aer_simulator")
-        with ExactEstimator(self.ansatz2, self.observable, backend=backend) as est:
+        with ExactEstimator([self.ansatz2], [self.observable], backend=backend) as est:
             est.set_run_options(seed_simulator=15)
             x = [-1, 0, 1, 1, 2, 3, 5]
             x2 = [0, 1, 0, 2, 0, 3, 0]

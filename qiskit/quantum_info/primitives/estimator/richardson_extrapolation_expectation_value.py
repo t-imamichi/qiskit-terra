@@ -9,6 +9,9 @@
 # Any modifications or derivative works of this code must retain this
 # copyright notice, and modified files need to carry a notice indicating
 # that they have been altered from the originals.
+
+# type: ignore
+
 """
 Expectation value with Richardson extrapolation
 """
@@ -50,8 +53,8 @@ class RichardsonExtrapolationEstimator(BaseEstimator):
     ):
         """ """
         super().__init__(
-            estimator.circuit,
-            estimator.observable,
+            estimator.circuits,
+            estimator.observables,
             sampler=estimator._backend,
         )
         self._expectation_value = copy.copy(estimator)
@@ -88,6 +91,6 @@ class RichardsonExtrapolationEstimator(BaseEstimator):
         return EstimatorResult(value, raw_data={"raw_results": raw_results})
 
     def _preprocessing(
-        self, circuit: QuantumCircuit, observable: SparsePauliOp
+        self, circuits: QuantumCircuit, observables: SparsePauliOp
     ) -> Union[list[QuantumCircuit], tuple[QuantumCircuit, list[QuantumCircuit]]]:
         return self._expectation_value.preprocessed_circuits

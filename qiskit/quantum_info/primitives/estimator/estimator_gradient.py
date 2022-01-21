@@ -28,7 +28,6 @@ from ..results import (
     CompositeResult,
     EstimatorArrayResult,
     EstimatorGradientResult,
-    EstimatorResult,
 )
 from ..results.base_result import BaseResult
 from .base_estimator import BaseEstimator
@@ -97,9 +96,7 @@ class BaseEstimatorGradient(BasePrimitive, ABC):
         results = cast(CompositeResult, super().run(param_array, **run_options))
         return self._compute_gradient(results, parameters.shape)
 
-    def _postprocessing(
-        self, result: Union[Result, BaseResult, dict]
-    ) -> Union[EstimatorResult, EstimatorArrayResult]:
+    def _postprocessing(self, result: Union[Result, BaseResult, dict]) -> EstimatorArrayResult:
         return self._estimator._postprocessing(result)
 
 
@@ -108,8 +105,8 @@ class FiniteDiffGradient(BaseEstimatorGradient):
     Finite difference of expectation values
     """
 
-    def __init__(self, expectation_value: BaseEstimator, epsilon: float):
-        super().__init__(expectation_value)
+    def __init__(self, estimator: BaseEstimator, epsilon: float):
+        super().__init__(estimator)
         self._epsilon = epsilon
 
     def _eval_parameters(
@@ -128,7 +125,7 @@ class FiniteDiffGradient(BaseEstimatorGradient):
         return np.array(ret)
 
     def _compute_gradient(self, results: CompositeResult, shape) -> EstimatorGradientResult:
-        values = np.array([r.value for r in results.items])  # type: ignore
+        values = np.array([r.values[0] for r in results.items])  # type: ignore
         dim = shape[-1]
         array = values.reshape((values.shape[0] // (dim + 1), dim + 1))
         ret = []
@@ -147,8 +144,8 @@ class ParameterShiftGradient(BaseEstimatorGradient):
     Gradient of expectation values by parameter shift
     """
 
-    def __init__(self, expectation_value: BaseEstimator):
-        super().__init__(expectation_value)
+    def __init__(self, estimator: BaseEstimator):
+        super().__init__(estimator)
         self._epsilon = np.pi / 2
 
     def _eval_parameters(
@@ -171,7 +168,7 @@ class ParameterShiftGradient(BaseEstimatorGradient):
         return np.array(ret)
 
     def _compute_gradient(self, results: CompositeResult, shape) -> EstimatorGradientResult:
-        values = np.array([r.value for r in results.items])  # type: ignore
+        values = np.array([r.values[0] for r in results.items])  # type: ignore
         dim = shape[-1]
         array = values.reshape((values.shape[0] // (2 * dim), 2 * dim))
         div = 2 * np.sin(self._epsilon)
