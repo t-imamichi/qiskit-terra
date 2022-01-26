@@ -15,26 +15,39 @@ Expectation value base class
 from __future__ import annotations
 
 from abc import ABC, abstractmethod
+from dataclasses import dataclass
+from functools import reduce
 from typing import TYPE_CHECKING, Optional, Union, cast
-
-import numpy as np
 
 from qiskit.circuit import QuantumCircuit
 from qiskit.opflow import PauliSumOp
 from qiskit.providers import BackendV1 as Backend
 from qiskit.quantum_info import SparsePauliOp, Statevector
 from qiskit.quantum_info.operators.base_operator import BaseOperator
-from qiskit.quantum_info.primitives.framework import BasePrimitive
+from qiskit.quantum_info.primitives.framework.base_primitive import (
+    BasePrimitive,
+    PreprocessedCircuits,
+)
 from qiskit.result import Result
 
 from ..backends import BaseBackendWrapper
-from ..results import CompositeResult, EstimatorArrayResult, EstimatorResult
+from ..results import CompositeResult, EstimatorArrayResult
 from ..results.base_result import BaseResult
 from ..sampler import BaseSampler
 from .utils import init_circuit, init_observable
 
 if TYPE_CHECKING:
     from typing import Any
+
+    import numpy as np
+
+
+@dataclass(frozen=True)
+class Group:
+    """The dataclass represents indices of circuit and observable."""
+
+    circuit_index: int
+    observable_index: int
 
 
 class BaseEstimator(BasePrimitive, ABC):
@@ -44,44 +57,43 @@ class BaseEstimator(BasePrimitive, ABC):
 
     def __init__(
         self,
-        circuit: Union[QuantumCircuit, Statevector],
-        observable: Union[BaseOperator, PauliSumOp],
+        circuits: list[Union[QuantumCircuit, Statevector]],
+        observables: list[Union[BaseOperator, PauliSumOp]],
         sampler: Union[Backend, BaseBackendWrapper, BaseSampler],
     ):
         """ """
+        if not isinstance(circuits, list):
+            raise TypeError("circuits must be list.")
+        if not isinstance(observables, list):
+            raise TypeError("observables must be list.")
+
         super().__init__(backend=sampler.backend if isinstance(sampler, BaseSampler) else sampler)
-        self._circuit = init_circuit(circuit)
-        self._observable = init_observable(observable)
         self._sampler = sampler
+        self._circuits = [init_circuit(circuit) for circuit in circuits]
+        self._observables = [init_observable(observable) for observable in observables]
+        self._grouping = [
+            Group(i, j) for i in range(len(circuits)) for j in range(len(observables))
+        ]
+        self._transpiled_circuits_cache: dict[list[Group], list[QuantumCircuit]] = {}
 
     @property
-    def circuit(self) -> QuantumCircuit:
-        """Quantum Circuit that represents quantum state.
+    def circuits(self) -> list[QuantumCircuit]:
+        """Quantum Circuits that represents quantum states.
 
         Returns:
-            quantum state
+            quantum states
         """
-        return self._circuit
-
-    @circuit.setter
-    def circuit(self, state: Union[QuantumCircuit, Statevector]):
-        self._transpiled_circuits = None
-        self._circuit = init_circuit(state)
+        return self._circuits
 
     @property
-    def observable(self) -> SparsePauliOp:
+    def observables(self) -> list[SparsePauliOp]:
         """
         SparsePauliOp that represents observable
 
         Returns:
             observable
         """
-        return self._observable
-
-    @observable.setter
-    def observable(self, observable: Union[BaseOperator, PauliSumOp]):
-        self._transpiled_circuits = None
-        self._observable = init_observable(observable)
+        return self._observables
 
     def set_transpile_options(self, **fields) -> BaseEstimator:
         """Set the transpiler options for transpiler.
@@ -92,21 +104,21 @@ class BaseEstimator(BasePrimitive, ABC):
             self
         """
         self._transpiled_circuits = None
+        self._transpiled_circuits_cache = {}
         super().set_transpile_options(**fields)
         return self
 
     @property
     def preprocessed_circuits(
         self,
-    ) -> Union[list[QuantumCircuit], tuple[QuantumCircuit, list[QuantumCircuit]]]:
+    ) -> PreprocessedCircuits:
         """
         Transpiled quantum circuits produced by preprocessing
 
         Returns:
             List of the transpiled quantum circuit
         """
-        if self._preprocessed_circuits is None:
-            self._preprocessed_circuits = self._preprocessing(self.circuit, self.observable)
+        self._preprocessed_circuits = self._preprocessing(self.circuits, self.observables)
         return super().preprocessed_circuits
 
     def run(
@@ -119,25 +131,38 @@ class BaseEstimator(BasePrimitive, ABC):
             ]
         ] = None,
         **run_options,
-    ) -> Union[EstimatorResult, EstimatorArrayResult]:
-        res = super().run(parameters, **run_options)
-        if isinstance(res, CompositeResult):
-            # TODO CompositeResult should be Generic
-            # pylint: disable=no-member
-            values = np.array([r.value for r in res.items])  # type: ignore
-            variances = np.array([r.variance for r in res.items])  # type: ignore
-            confidence_intervals = np.array([r.confidence_interval for r in res.items])  # type: ignore
-            return EstimatorArrayResult(values, variances, confidence_intervals)
-        return cast(EstimatorResult, res)
+    ) -> EstimatorArrayResult:
+        if "grouping" in run_options:
+            self._grouping = [
+                g if isinstance(g, Group) else Group(g[0], g[1]) for g in run_options["grouping"]
+            ]
+            del run_options["grouping"]
+        else:
+            self._grouping = [
+                Group(i, j) for i in range(len(self.circuits)) for j in range(len(self.observables))
+            ]
+        result = super().run(parameters, **run_options)
+        if isinstance(result, CompositeResult):
+            return cast(
+                EstimatorArrayResult,
+                reduce(lambda a, b: a + b, result.items),  # type: ignore # pylint: disable=no-member
+            )
+        return cast(EstimatorArrayResult, result)
 
     @abstractmethod
     def _preprocessing(
-        self, circuit: QuantumCircuit, observable: SparsePauliOp
-    ) -> Union[list[QuantumCircuit], tuple[QuantumCircuit, list[QuantumCircuit]]]:
+        self, circuits: list[QuantumCircuit], observables: list[SparsePauliOp]
+    ) -> Union[list[QuantumCircuit], list[tuple[QuantumCircuit, list[QuantumCircuit]]]]:
         return NotImplemented
 
     @abstractmethod
-    def _postprocessing(
-        self, result: Union[dict, BaseResult, Result]
-    ) -> Union[EstimatorResult, EstimatorArrayResult]:
+    def _postprocessing(self, result: Union[dict, BaseResult, Result]) -> EstimatorArrayResult:
         return NotImplemented
+
+    def _transpile(self):
+
+        if tuple(self._grouping) in self._transpiled_circuits_cache:
+            self._transpiled_circuits = self._transpiled_circuits_cache[tuple(self._grouping)]
+        else:
+            super()._transpile()
+            self._transpiled_circuits_cache[tuple(self._grouping)] = self._transpiled_circuits

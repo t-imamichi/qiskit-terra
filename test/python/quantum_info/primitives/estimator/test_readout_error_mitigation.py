@@ -59,8 +59,8 @@ class TestReadoutErrorMitigation(QiskitTestCase):
             shots=1000,
             qubits=[0, 1],
         )
-        with PauliEstimator(self.ansatz, self.observable, backend=mit) as est:
+        with PauliEstimator([self.ansatz], [self.observable], backend=mit) as est:
             est.set_transpile_options(seed_transpiler=15)
             est.set_run_options(seed_simulator=15)
             result = est([0, 1, 1, 2, 3, 5])
-        self.assertAlmostEqual(result.value, -1.305, places=2)
+        self.assertAlmostEqual(result.values[0], -1.305, places=2)

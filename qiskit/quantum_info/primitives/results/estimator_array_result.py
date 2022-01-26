@@ -30,5 +30,10 @@ class EstimatorArrayResult(BaseResult):
 
     values: np.ndarray[Any, np.dtype[np.float64]]
     variances: np.ndarray[Any, np.dtype[np.float64]]
-    confidence_intervals: np.ndarray[Any, np.dtype[np.float64]]
+    # standard_errors: np.ndarray[Any, np.dtype[np.float64]]
     # metadata: Metadata
+
+    def __add__(self, other: EstimatorArrayResult):
+        values = np.concatenate([self.values, other.values])
+        variances = np.concatenate([self.variances, other.variances])
+        return EstimatorArrayResult(values, variances)

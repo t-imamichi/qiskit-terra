@@ -68,10 +68,6 @@ class BaseSampler(BasePrimitive, ABC):
         """
         return self._circuits
 
-    @circuits.setter
-    def circuits(self, circuits: Union[QuantumCircuit, list[QuantumCircuit]]):
-        self._circuits = circuits if isinstance(circuits, list) else [circuits]
-
     @property
     def preprocessed_circuits(self) -> Optional[list[QuantumCircuit]]:
         return self._circuits

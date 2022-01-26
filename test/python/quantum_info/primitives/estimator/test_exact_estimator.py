@@ -32,9 +32,11 @@ class TestExactEstimator(QiskitTestCase):
         """test for evaluate"""
         observable = PauliSumOp.from_list([("XX", 1), ("YY", 2), ("ZZ", 3)])
         ansatz = RealAmplitudes(num_qubits=2, reps=2)
-        with ExactEstimator(ansatz, observable, backend=Aer.get_backend("aer_simulator")) as est:
+        with ExactEstimator(
+            [ansatz], [observable], backend=Aer.get_backend("aer_simulator")
+        ) as est:
             result = est([0, 1, 1, 2, 3, 5])
-        self.assertIsInstance(result.value, float)
-        self.assertAlmostEqual(result.value, 1.84209213)
-        self.assertIsInstance(result.variance, float)
-        self.assertAlmostEqual(result.variance, 6.43276352)
+        self.assertIsInstance(result.values[0], float)
+        self.assertAlmostEqual(result.values[0], 1.84209213)
+        self.assertIsInstance(result.variances[0], float)
+        self.assertAlmostEqual(result.variances[0], 6.43276352)

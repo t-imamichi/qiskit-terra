@@ -34,7 +34,9 @@ from ..backends import (
 from ..results import CompositeResult
 from ..results.base_result import BaseResult
 
-PreprocessedCircuits = Union["list[QuantumCircuit]", "tuple[QuantumCircuit, list[QuantumCircuit]]"]
+PreprocessedCircuits = Union[
+    "list[QuantumCircuit]", "list[tuple[QuantumCircuit, list[QuantumCircuit]]]"
+]
 
 
 class BasePrimitive(ABC):
@@ -156,8 +158,7 @@ class BasePrimitive(ABC):
         """
         if self._is_closed:
             raise QiskitError("The primitive has been closed.")
-        if self._transpiled_circuits is None:
-            self._transpile()
+        self._transpile()
         return self._transpiled_circuits
 
     def run(
@@ -180,6 +181,7 @@ class BasePrimitive(ABC):
         """
         if self._is_closed:
             raise QiskitError("The primitive has been closed.")
+
         # Bind parameters
         # TODO: support Aer parameter bind after https://github.com/Qiskit/qiskit-aer/pull/1317
         if parameters is None:
@@ -236,44 +238,10 @@ class BasePrimitive(ABC):
         return ret_result
 
     def _transpile(self):
-        if isinstance(self.preprocessed_circuits, tuple):
-            # 1. transpile a common circuit
-            transpiled_state = self.preprocessed_circuits[0].copy()
-            num_qubits = transpiled_state.num_qubits
-            transpiled_state.measure_all()
-            transpiled_state = cast(
-                QuantumCircuit,
-                transpile(transpiled_state, self.backend, **self.transpile_options.__dict__),
-            )
-            bit_map = {bit: index for index, bit in enumerate(transpiled_state.qubits)}
-            layout = [bit_map[qr[0]] for _, qr, _ in transpiled_state[-num_qubits:]]
-            transpiled_state.remove_final_measurements()
-            # 2. transpile diff circuits
-            diff_circuits = self.preprocessed_circuits[1]
-            transpile_opts = copy.copy(self.transpile_options)
-            transpile_opts.update_options(initial_layout=layout)
-            diff_circuits = cast(
-                "list[QuantumCircuit]",
-                transpile(diff_circuits, self.backend, **transpile_opts.__dict__),
-            )
-            # 3. combine
-            transpiled_circuits = []
-            for diff_circuit in diff_circuits:
-                transpiled_circuit = transpiled_state.copy()
-                for creg in diff_circuit.cregs:
-                    if creg not in transpiled_circuit.cregs:
-                        transpiled_circuit.add_register(creg)
-                transpiled_circuit.compose(diff_circuit, inplace=True)
-                transpiled_circuit.metadata = diff_circuit.metadata
-                transpiled_circuits.append(transpiled_circuit)
-            self._transpiled_circuits = transpiled_circuits
-        else:
-            self._transpiled_circuits = cast(
-                "list[QuantumCircuit]",
-                transpile(
-                    self.preprocessed_circuits, self.backend, **self.transpile_options.__dict__
-                ),
-            )
+        self._transpiled_circuits = cast(
+            "list[QuantumCircuit]",
+            transpile(self.preprocessed_circuits, self.backend, **self.transpile_options.__dict__),
+        )
 
     @abstractmethod
     def _postprocessing(self, result: Union[Result, BaseResult, dict]) -> BaseResult:

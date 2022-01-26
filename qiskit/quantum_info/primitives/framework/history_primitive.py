@@ -59,7 +59,7 @@ class HistoryPrimitive(BasePrimitive):
         **run_options,
     ) -> BaseResult:
 
-        result = super().run(parameters, **run_options)
+        result = self._primitive.run(parameters, **run_options)
         self._history.append(result)
         return result
 
