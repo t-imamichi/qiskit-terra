@@ -118,8 +118,7 @@ class BaseEstimator(BasePrimitive, ABC):
         Returns:
             List of the transpiled quantum circuit
         """
-        if self._preprocessed_circuits is None:
-            self._preprocessed_circuits = self._preprocessing(self.circuits, self.observables)
+        self._preprocessed_circuits = self._preprocessing(self.circuits, self.observables)
         return super().preprocessed_circuits
 
     def run(

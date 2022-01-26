@@ -18,6 +18,7 @@ from __future__ import annotations
 import copy
 import logging
 from functools import reduce
+from itertools import accumulate
 from typing import Any, Optional, Union, cast
 
 import numpy as np
@@ -34,7 +35,7 @@ from qiskit.result import Counts, Result
 from ..results import EstimatorArrayResult, SamplerResult
 from ..results.base_result import BaseResult
 from ..sampler import BaseSampler
-from .base_estimator import BaseEstimator
+from .base_estimator import BaseEstimator, Group
 
 logger = logging.getLogger(__name__)
 
@@ -57,6 +58,20 @@ class PauliEstimator(BaseEstimator):
             sampler=BaseSampler.from_backend(backend),
         )
         self._measurement_strategy = strategy
+
+    @property
+    def preprocessed_circuits(
+        self,
+    ) -> list[tuple[QuantumCircuit, list[QuantumCircuit]]]:
+        """
+        Transpiled quantum circuits produced by preprocessing
+
+        Returns:
+            List of the transpiled quantum circuit
+        """
+        return cast(
+            "list[tuple[QuantumCircuit, list[QuantumCircuit]]]", super().preprocessed_circuits
+        )
 
     def _transpile(self):
         """Split Transpile"""
@@ -112,10 +127,23 @@ class PauliEstimator(BaseEstimator):
         """
         if self._is_closed:
             raise QiskitError("The primitive has been closed.")
+
+        if "grouping" in run_options:
+            self._grouping = [
+                g if isinstance(g, Group) else Group(g[0], g[1]) for g in run_options["grouping"]
+            ]
+            del run_options["grouping"]
+        else:
+            self._grouping = [
+                Group(i, j) for i in range(len(self.circuits)) for j in range(len(self.observables))
+            ]
+
         # Bind parameters
         # TODO: support Aer parameter bind after https://github.com/Qiskit/qiskit-aer/pull/1317
+        # Is it possible to bind in Sampler?
         if parameters is None:
             bound_circuits = self.transpiled_circuits
+            num_parameter_sets = 1
         else:
             parameters = np.asarray(parameters, dtype=np.float64)
             if parameters.ndim == 1:
@@ -123,12 +151,14 @@ class PauliEstimator(BaseEstimator):
                     circ.bind_parameters(parameters)  # type: ignore
                     for circ in self.transpiled_circuits
                 ]
+                num_parameter_sets = 1
             elif parameters.ndim == 2:
                 bound_circuits = [
                     circ.bind_parameters(parameter)
                     for parameter in parameters
                     for circ in self.transpiled_circuits
                 ]
+                num_parameter_sets = len(parameters)
             else:
                 raise TypeError("The number of array dimension must be 1 or 2.")
 
@@ -137,38 +167,21 @@ class PauliEstimator(BaseEstimator):
         run_opts.update_options(**run_options)
 
         results = self._sampler.run(circuits=bound_circuits, **run_opts.__dict__)
+        results = cast(SamplerResult, results)
 
-        if parameters is None or isinstance(parameters, np.ndarray) and parameters.ndim == 1:
-            ret_result = self._postprocessing(results)
-        else:
-            if isinstance(results, Result):
-                postprocessed = [
-                    self._postprocessing(
-                        results.results[
-                            i
-                            * len(self.transpiled_circuits) : (i + 1)
-                            * len(self.transpiled_circuits)
-                        ]
-                    )
-                    for i in range(len(parameters))
-                ]
-            else:
-                postprocessed = [
-                    self._postprocessing(
-                        results[
-                            i
-                            * len(self.transpiled_circuits) : (i + 1)
-                            * len(self.transpiled_circuits)
-                        ]
-                    )
-                    for i in range(len(parameters))
-                ]
+        num_obs = [len(m) for _, m in self.preprocessed_circuits]
+        num_experiments = num_obs * num_parameter_sets
+        accum = [0] + list(accumulate(num_experiments))
 
-            return cast(
-                EstimatorArrayResult,
-                reduce(lambda a, b: a + b, postprocessed),
-            )
-        return cast(EstimatorArrayResult, ret_result)
+        postprocessed = [
+            self._postprocessing(results[accum[i] : accum[i + 1]])
+            for i in range(len(num_experiments))
+        ]
+
+        return cast(
+            EstimatorArrayResult,
+            reduce(lambda a, b: a + b, postprocessed),
+        )
 
     def _preprocessing(
         self, circuits: list[QuantumCircuit], observables: list[SparsePauliOp]

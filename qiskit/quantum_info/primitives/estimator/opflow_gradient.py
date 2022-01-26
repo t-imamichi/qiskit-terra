@@ -26,7 +26,11 @@ from qiskit.opflow.gradients import Gradient
 from qiskit.quantum_info import Pauli
 
 from ..estimator.base_estimator import BaseEstimator
-from ..results import CompositeResult, EstimatorGradientResult, EstimatorResult
+from ..results import (
+    EstimatorArrayResult,
+    EstimatorGradientResult,
+    EstimatorResult,
+)
 from .estimator_gradient import BaseEstimatorGradient
 
 Pauli_Z = Pauli("Z")
@@ -96,7 +100,7 @@ class OpflowGradient(BaseEstimatorGradient):
     ) -> np.ndarray[Any, np.dtype[np.float64]]:
         pass
 
-    def _compute_gradient(self, results: CompositeResult, shape) -> EstimatorGradientResult:
+    def _compute_gradient(self, results: EstimatorArrayResult, shape) -> EstimatorGradientResult:
         pass
 
     def run(  # pylint: disable=signature-differs

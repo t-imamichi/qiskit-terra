@@ -158,8 +158,7 @@ class BasePrimitive(ABC):
         """
         if self._is_closed:
             raise QiskitError("The primitive has been closed.")
-        if self._transpiled_circuits is None:
-            self._transpile()
+        self._transpile()
         return self._transpiled_circuits
 
     def run(

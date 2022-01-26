@@ -16,7 +16,7 @@ Expectation value gradient class
 from __future__ import annotations
 
 from abc import ABC, abstractmethod
-from typing import Any, Optional, Union, cast
+from typing import Any, Optional, Union
 
 import numpy as np
 
@@ -24,11 +24,7 @@ from qiskit.circuit import QuantumCircuit
 from qiskit.result import Result
 
 from ..framework.base_primitive import BasePrimitive, PreprocessedCircuits
-from ..results import (
-    CompositeResult,
-    EstimatorArrayResult,
-    EstimatorGradientResult,
-)
+from ..results import EstimatorArrayResult, EstimatorGradientResult
 from ..results.base_result import BaseResult
 from .base_estimator import BaseEstimator
 
@@ -75,7 +71,7 @@ class BaseEstimatorGradient(BasePrimitive, ABC):
         return NotImplemented
 
     @abstractmethod
-    def _compute_gradient(self, results: CompositeResult, shape) -> EstimatorGradientResult:
+    def _compute_gradient(self, results: EstimatorArrayResult, shape) -> EstimatorGradientResult:
         return NotImplemented
 
     def run(
@@ -93,7 +89,7 @@ class BaseEstimatorGradient(BasePrimitive, ABC):
         if len(parameters.shape) not in [1, 2]:
             raise ValueError("parameters should be a 1D vector or 2D vectors")
         param_array = self._eval_parameters(parameters)
-        results = cast(CompositeResult, super().run(param_array, **run_options))
+        results = self._estimator.run(param_array, **run_options)
         return self._compute_gradient(results, parameters.shape)
 
     def _postprocessing(self, result: Union[Result, BaseResult, dict]) -> EstimatorArrayResult:
@@ -124,8 +120,8 @@ class FiniteDiffGradient(BaseEstimatorGradient):
                 ret.append(ei)
         return np.array(ret)
 
-    def _compute_gradient(self, results: CompositeResult, shape) -> EstimatorGradientResult:
-        values = np.array([r.values[0] for r in results.items])  # type: ignore
+    def _compute_gradient(self, results: EstimatorArrayResult, shape) -> EstimatorGradientResult:
+        values = results.values
         dim = shape[-1]
         array = values.reshape((values.shape[0] // (dim + 1), dim + 1))
         ret = []
@@ -167,8 +163,8 @@ class ParameterShiftGradient(BaseEstimatorGradient):
 
         return np.array(ret)
 
-    def _compute_gradient(self, results: CompositeResult, shape) -> EstimatorGradientResult:
-        values = np.array([r.values[0] for r in results.items])  # type: ignore
+    def _compute_gradient(self, results: EstimatorArrayResult, shape) -> EstimatorGradientResult:
+        values = results.values
         dim = shape[-1]
         array = values.reshape((values.shape[0] // (2 * dim), 2 * dim))
         div = 2 * np.sin(self._epsilon)
