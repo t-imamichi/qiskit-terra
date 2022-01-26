@@ -16,3 +16,4 @@ Sampler
 
 from .base_sampler import BaseSampler, SamplerResult
 from .large_shot_sampler import LargeShotSampler
+from .onchip_parallel_sampler import OnchipParallelSampler
