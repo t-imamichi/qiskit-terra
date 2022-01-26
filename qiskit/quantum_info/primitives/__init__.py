@@ -23,4 +23,4 @@ from .estimator import (
     ParameterShiftGradient,
     PauliEstimator,
 )
-from .framework import HistoryPrimitive, JointPrimitive
+from .framework import HistoryPrimitive

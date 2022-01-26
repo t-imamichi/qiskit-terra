@@ -16,7 +16,6 @@ from __future__ import annotations
 
 import copy
 from abc import ABC, abstractmethod
-from collections import Counter
 from typing import Any, Optional, Union, cast
 
 import numpy as np
@@ -26,12 +25,11 @@ from qiskit.compiler import transpile
 from qiskit.exceptions import QiskitError
 from qiskit.providers import BackendV1 as Backend
 from qiskit.providers import Options
-from qiskit.result import Counts, Result
+from qiskit.result import Result
 
 from ..backends import (
     BackendWrapper,
     BaseBackendWrapper,
-    ReadoutErrorMitigation,
 )
 from ..results import CompositeResult
 from ..results.base_result import BaseResult
@@ -278,32 +276,5 @@ class BasePrimitive(ABC):
             )
 
     @abstractmethod
-    def _postprocessing(self, result: Result) -> BaseResult:
+    def _postprocessing(self, result: Union[Result, BaseResult, dict]) -> BaseResult:
         return NotImplemented
-
-    def _get_counts(self, results: list[Result]) -> list[Counts]:
-        """
-        Convert Result to Counts
-
-        Returns:
-            list of counts
-        Raises:
-            QiskitError: if inputs are empty
-        """
-        if len(results) == 0:
-            raise QiskitError("Empty result")
-        if isinstance(self._backend, ReadoutErrorMitigation):
-            list_counts = self._backend.apply_mitigation(results)
-        else:
-            list_counts = [result.get_counts() for result in results]
-        num_circuits = len(self.transpiled_circuits)
-        counters: list[Counter] = [Counter() for _ in range(num_circuits)]
-        i = 0
-        for counts in list_counts:
-            if isinstance(counts, Counts):
-                counts = [counts]
-            for count in counts:
-                counters[i % num_circuits].update(count)
-                i += 1
-        # TODO: recover the metadata of Counts
-        return [Counts(c) for c in counters]

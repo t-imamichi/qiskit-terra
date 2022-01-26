@@ -28,11 +28,9 @@ from qiskit.quantum_info.primitives.framework import BasePrimitive
 from qiskit.result import Result
 
 from ..backends import BaseBackendWrapper
-from ..results import (
-    CompositeResult,
-    EstimatorArrayResult,
-    EstimatorResult,
-)
+from ..results import CompositeResult, EstimatorArrayResult, EstimatorResult
+from ..results.base_result import BaseResult
+from ..sampler import BaseSampler
 from .utils import init_circuit, init_observable
 
 if TYPE_CHECKING:
@@ -48,12 +46,13 @@ class BaseEstimator(BasePrimitive, ABC):
         self,
         circuit: Union[QuantumCircuit, Statevector],
         observable: Union[BaseOperator, PauliSumOp],
-        backend: Union[Backend, BaseBackendWrapper],
+        sampler: Union[Backend, BaseBackendWrapper, BaseSampler],
     ):
         """ """
-        super().__init__(backend=backend)
+        super().__init__(backend=sampler.backend if isinstance(sampler, BaseSampler) else sampler)
         self._circuit = init_circuit(circuit)
         self._observable = init_observable(observable)
+        self._sampler = sampler
 
     @property
     def circuit(self) -> QuantumCircuit:
@@ -138,5 +137,7 @@ class BaseEstimator(BasePrimitive, ABC):
         return NotImplemented
 
     @abstractmethod
-    def _postprocessing(self, result: Result) -> EstimatorResult:
+    def _postprocessing(
+        self, result: Union[dict, BaseResult, Result]
+    ) -> Union[EstimatorResult, EstimatorArrayResult]:
         return NotImplemented

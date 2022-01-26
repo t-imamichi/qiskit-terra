@@ -26,6 +26,7 @@ from qiskit.quantum_info import SparsePauliOp
 from qiskit.result import Result
 
 from ..results import EstimatorResult
+from ..results.base_result import BaseResult
 from .base_estimator import BaseEstimator
 
 
@@ -51,7 +52,7 @@ class RichardsonExtrapolationEstimator(BaseEstimator):
         super().__init__(
             estimator.circuit,
             estimator.observable,
-            backend=estimator._backend,
+            sampler=estimator._backend,
         )
         self._expectation_value = copy.copy(estimator)
         if not isinstance(richardson_setting, RichardsonSetting):
@@ -70,7 +71,7 @@ class RichardsonExtrapolationEstimator(BaseEstimator):
             self._transpiled_circuits = sum(transpiled_circuits, [])
         return self._transpiled_circuits
 
-    def _postprocessing(self, result: Result) -> EstimatorResult:
+    def _postprocessing(self, result: Union[Result, BaseResult, dict]) -> EstimatorResult:
         expval_length = len(self._expectation_value.transpiled_circuits)
         scales = self._richardson_setting.scales
         c_mat = np.array([[scale ** i for scale in scales] for i in range(len(scales))])
@@ -83,7 +84,7 @@ class RichardsonExtrapolationEstimator(BaseEstimator):
                 result[i * expval_length : (i + 1) * expval_length]  # type: ignore
             )
             raw_results.append({"expectation_value_result": expval_result, "scale": scale})
-            value += coeff * expval_result.value
+            value += coeff * expval_result.value  # type: ignore
         return EstimatorResult(value, raw_data={"raw_results": raw_results})
 
     def _preprocessing(

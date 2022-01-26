@@ -26,9 +26,11 @@ from qiskit.result import Result
 from ..framework.base_primitive import BasePrimitive, PreprocessedCircuits
 from ..results import (
     CompositeResult,
+    EstimatorArrayResult,
     EstimatorGradientResult,
     EstimatorResult,
 )
+from ..results.base_result import BaseResult
 from .base_estimator import BaseEstimator
 
 
@@ -95,7 +97,9 @@ class BaseEstimatorGradient(BasePrimitive, ABC):
         results = cast(CompositeResult, super().run(param_array, **run_options))
         return self._compute_gradient(results, parameters.shape)
 
-    def _postprocessing(self, result: Result) -> EstimatorResult:
+    def _postprocessing(
+        self, result: Union[Result, BaseResult, dict]
+    ) -> Union[EstimatorResult, EstimatorArrayResult]:
         return self._estimator._postprocessing(result)
 
 

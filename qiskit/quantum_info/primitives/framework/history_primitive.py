@@ -71,5 +71,5 @@ class HistoryPrimitive(BasePrimitive):
     def transpiled_circuits(self):
         return self._primitive.transpiled_circuits
 
-    def _postprocessing(self, result: Result) -> BaseResult:
+    def _postprocessing(self, result: Union[Result, BaseResult, dict]) -> BaseResult:
         return self._primitive._postprocessing(result)

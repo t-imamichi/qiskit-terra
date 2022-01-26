@@ -28,7 +28,8 @@ from qiskit.quantum_info.operators.base_operator import BaseOperator
 from qiskit.result import Result
 from qiskit.utils import has_aer
 
-from ..results import EstimatorResult, SamplerResult
+from ..results import EstimatorResult
+from ..results.base_result import BaseResult
 from .base_estimator import BaseEstimator
 
 if has_aer():
@@ -56,7 +57,7 @@ class ExactEstimator(BaseEstimator):
         super().__init__(
             circuit=circuit,
             observable=observable,
-            backend=backend,
+            sampler=backend,
         )
 
     def _preprocessing(
@@ -67,12 +68,14 @@ class ExactEstimator(BaseEstimator):
         circuit_copy.append(inst, qargs=range(circuit_copy.num_qubits))
         return [circuit_copy]
 
-    def _postprocessing(self, result: Union[dict, SamplerResult, Result]) -> EstimatorResult:
+    def _postprocessing(self, result: Union[Result, BaseResult, dict]) -> EstimatorResult:
 
         # TODO: validate
-
         if isinstance(result, Result):
             expval, variance = result.data(0)["expectation_value_variance"]
         else:
-            expval, variance = result[0].to_dict()["data"]["expectation_value_variance"]
+            # TODO: Fix following type ignore
+            expval, variance = result[0].to_dict()["data"][  # type: ignore
+                "expectation_value_variance"
+            ]
         return EstimatorResult(expval, variance, None)

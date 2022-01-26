@@ -15,19 +15,28 @@ Expectation value class
 
 from __future__ import annotations
 
+import copy
 import logging
-from typing import Optional, Union, cast
+from typing import Any, Optional, Union, cast
 
 import numpy as np
 
 from qiskit.circuit import QuantumCircuit
+from qiskit.exceptions import QiskitError
 from qiskit.opflow import AbelianGrouper, PauliSumOp
 from qiskit.providers import BackendV1 as Backend
 from qiskit.quantum_info import SparsePauliOp, Statevector
 from qiskit.quantum_info.operators.base_operator import BaseOperator
 from qiskit.result import Counts, Result
 
-from ..results import EstimatorResult
+from ..results import (
+    CompositeResult,
+    EstimatorArrayResult,
+    EstimatorResult,
+    SamplerResult,
+)
+from ..results.base_result import BaseResult
+from ..sampler import BaseSampler
 from .base_estimator import BaseEstimator
 
 logger = logging.getLogger(__name__)
@@ -42,15 +51,97 @@ class PauliEstimator(BaseEstimator):
         self,
         circuit: Union[QuantumCircuit, Statevector],
         observable: Union[BaseOperator, PauliSumOp],
-        backend: Backend,
+        backend: Union[Backend, BaseSampler],
         grouping: bool = True,
     ):
         super().__init__(
             circuit=circuit,
             observable=observable,
-            backend=backend,
+            sampler=BaseSampler.from_backend(backend),
         )
         self._grouping = grouping
+
+    def run(
+        self,
+        parameters: Optional[
+            Union[
+                list[float],
+                list[list[float]],
+                np.ndarray[Any, np.dtype[np.float64]],
+            ]
+        ] = None,
+        **run_options,
+    ) -> Union[EstimatorResult, EstimatorArrayResult]:
+        """
+        Returns:
+            The running result.
+        Raises:
+            QiskitError: if the instance has been closed.
+            TypeError: if the shape of parameters is invalid.
+        """
+        if self._is_closed:
+            raise QiskitError("The primitive has been closed.")
+        # Bind parameters
+        # TODO: support Aer parameter bind after https://github.com/Qiskit/qiskit-aer/pull/1317
+        if parameters is None:
+            bound_circuits = self.transpiled_circuits
+        else:
+            parameters = np.asarray(parameters, dtype=np.float64)
+            if parameters.ndim == 1:
+                bound_circuits = [
+                    circ.bind_parameters(parameters)  # type: ignore
+                    for circ in self.transpiled_circuits
+                ]
+            elif parameters.ndim == 2:
+                bound_circuits = [
+                    circ.bind_parameters(parameter)
+                    for parameter in parameters
+                    for circ in self.transpiled_circuits
+                ]
+            else:
+                raise TypeError("The number of array dimension must be 1 or 2.")
+
+        # Run
+        run_opts = copy.copy(self.run_options)
+        run_opts.update_options(**run_options)
+
+        results = self._sampler.run(circuits=bound_circuits, **run_opts.__dict__)
+
+        if parameters is None or isinstance(parameters, np.ndarray) and parameters.ndim == 1:
+            ret_result = self._postprocessing(results)
+        else:
+            if isinstance(results, Result):
+                postprocessed = [
+                    self._postprocessing(
+                        results.results[
+                            i
+                            * len(self.transpiled_circuits) : (i + 1)
+                            * len(self.transpiled_circuits)
+                        ]
+                    )
+                    for i in range(len(parameters))
+                ]
+            else:
+                postprocessed = [
+                    self._postprocessing(
+                        results[
+                            i
+                            * len(self.transpiled_circuits) : (i + 1)
+                            * len(self.transpiled_circuits)
+                        ]
+                    )
+                    for i in range(len(parameters))
+                ]
+            composite_result = CompositeResult(postprocessed)
+
+            # TODO CompositeResult should be Generic
+            values = np.array([r.value for r in composite_result.items])  # type: ignore
+            variances = np.array([r.variance for r in composite_result.items])  # type: ignore
+            confidence_intervals = np.array(
+                [r.confidence_interval for r in composite_result.items]  # type: ignore
+            )
+            return EstimatorArrayResult(values, variances, confidence_intervals)
+        return cast(EstimatorResult, ret_result)
 
     def _preprocessing(
         self, circuit: QuantumCircuit, observable: SparsePauliOp
@@ -97,16 +188,15 @@ class PauliEstimator(BaseEstimator):
 
         return circuit.copy(), diff_circuits
 
-    def _postprocessing(self, result: Result) -> EstimatorResult:
+    def _postprocessing(self, result: Union[Result, BaseResult, dict]) -> EstimatorResult:
         """
         Postprocessing for evaluation of expectation value using pauli rotation gates.
         """
-        if isinstance(result, Result):
-            data = self._get_counts([result])
-            metadata = [res.header.metadata for res in result.results]
-        else:
-            data = [Counts(res.to_dict()["data"]["counts"]) for res in result]
-            metadata = [res.header.to_dict()["metadata"] for res in result]
+        if not isinstance(result, SamplerResult):
+            raise TypeError(f"result must be SamplerResult, not {type(result)}.")
+
+        data = result.counts
+        metadata = result.metadata
 
         combined_expval = 0.0
         combined_variance = 0.0

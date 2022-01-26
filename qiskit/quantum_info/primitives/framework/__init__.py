@@ -14,6 +14,5 @@ Framework for evaluator classes.
 """
 
 from .base_primitive import BasePrimitive
-from .composite import JointPrimitive
 from .history_primitive import HistoryPrimitive
 from .transpiled_circuit_primitive import TranspiledCircuitPrimitive
