@@ -44,7 +44,7 @@ class OnchipParallelSampler(BaseSampler):
     ):
         """ """
         super().__init__(backend=backend, circuits=circuits)
-        self._layout: list[list[int]] = [layout] if isinstance(layout[0], int) else layout
+        self._layout = cast(list[list[int]], [layout] if isinstance(layout[0], int) else layout)
         if len(set(len(e) for e in self._layout)) != 1:
             logger.fatal(
                 "Qubit layout is not consistent. " "All layouts should have the same size: %s",
@@ -97,7 +97,7 @@ class OnchipParallelSampler(BaseSampler):
             new_parameters = parameters
         else:
             new_parameters = parameters * len(self._layout)
-        initial_layout = sum(self._layout, start=[])
+        initial_layout: list[int] = sum(self._layout, start=[])
         self.set_transpile_options(initial_layout=initial_layout)
         return cast(SamplerResult, super().run(new_parameters, **run_options))
 
@@ -136,7 +136,7 @@ class OnchipParallelSampler(BaseSampler):
         new_counts = []
         step = len(self._layout[0])
         for counts in raw_counts:
-            counter = Counter()
+            counter: Counter = Counter()
             for key, value in counts.items():
                 for i in range(0, len(key), step):
                     counter[key[i : i + step]] += value
