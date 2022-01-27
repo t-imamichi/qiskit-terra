@@ -47,18 +47,25 @@ class OnchipParallelSampler(BaseSampler):
                 "Qubit layout is not consistent. "
                 f"All layouts should have the same size: {self._layout}"
             )
-        nums_qubits = [circ.num_qubits for circ in self._circuits]
-        if len(set(nums_qubits)) != 1:
-            logger.fatal(
-                "Numbers of qubits of circuits are not consistent. "
-                f"All circuits should have the same number of qubits: {nums_qubits}"
-            )
+        self._validate_circuits()
         config = self._backend.backend.configuration()
         self._num_qubits = config.num_qubits
 
     @property
     def layout(self) -> list[list[int]]:
         return self._layout
+
+    def _validate_circuits(self) -> bool:
+        if self._circuits is None:
+            return True
+        nums_qubits = [circ.num_qubits for circ in self._circuits]
+        if len(set(nums_qubits)) != 1:
+            logger.fatal(
+                "Numbers of qubits of circuits are not consistent. "
+                f"All circuits should have the same number of qubits: {nums_qubits}"
+            )
+            return False
+        return True
 
     def run(
         self,
@@ -73,12 +80,14 @@ class OnchipParallelSampler(BaseSampler):
     ) -> SamplerResult:
         if "circuits" in run_options:
             self._circuits = run_options["circuits"]
+            self._validate_circuits()
             del run_options["circuits"]
         if "layout" in run_options:
             layout = run_options["layout"]
             self._layout = [layout] if isinstance(layout[0], int) else layout
             del run_options["layout"]
         self._circuits = self._embed_circuits()
+        self._validate_circuits()
         if parameters is None:
             new_parameters = parameters
         else:
