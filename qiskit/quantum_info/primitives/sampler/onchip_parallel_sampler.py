@@ -23,10 +23,11 @@ import numpy as np
 
 from qiskit.circuit import QuantumCircuit
 from qiskit.providers.backend import BackendV1 as Backend
-from qiskit.result import Counts
+from qiskit.result import Counts, Result
 
 from ..backends import BaseBackendWrapper
 from ..results import SamplerResult
+from ..results.base_result import BaseResult
 from .base_sampler import BaseSampler
 
 logger = logging.getLogger(__name__)
@@ -44,8 +45,8 @@ class OnchipParallelSampler(BaseSampler):
         self._layout: list[list[int]] = [layout] if isinstance(layout[0], int) else layout
         if len(set(len(e) for e in self._layout)) != 1:
             logger.fatal(
-                "Qubit layout is not consistent. "
-                f"All layouts should have the same size: {self._layout}"
+                "Qubit layout is not consistent. " "All layouts should have the same size: %s",
+                self._layout,
             )
         self._validate_circuits()
         config = self._backend.backend.configuration()
@@ -62,7 +63,8 @@ class OnchipParallelSampler(BaseSampler):
         if len(set(nums_qubits)) != 1:
             logger.fatal(
                 "Numbers of qubits of circuits are not consistent. "
-                f"All circuits should have the same number of qubits: {nums_qubits}"
+                "All circuits should have the same number of qubits: %d",
+                nums_qubits,
             )
             return False
         return True
@@ -94,43 +96,58 @@ class OnchipParallelSampler(BaseSampler):
             new_parameters = parameters * len(self._layout)
         initial_layout = sum(self._layout, start=[])
         self.set_transpile_options(initial_layout=initial_layout)
-        raw_result = cast(SamplerResult, super().run(new_parameters, **run_options))
-        return self._split_bitstrings(raw_result)
+        return cast(SamplerResult, super().run(new_parameters, **run_options))
 
     def _embed_circuits(self):
         if self._circuits[0].num_qubits != len(self._layout[0]):
             logger.fatal(
-                f"The number of qubits ({self._circuits.num_qubits}) does not match with "
-                f"the number of qubits of the qubit layout ({len(self._layout[0])})"
+                "The number of qubits (%d) does not match with "
+                "the number of qubits of the qubit layout (%d)",
+                self._circuits[0].num_qubits,
+                len(self._layout[0]),
             )
         total_num_qubits = self._circuits[0].num_qubits * len(self._layout)
         if total_num_qubits > self._num_qubits:
             logger.fatal(
-                f"Total number of qubits ({total_num_qubits}) exceeds "
-                f"the number of qubits ({self._num_qubits}) of the backend"
+                f"Total number of qubits (%d) exceeds " f"the number of qubits (%d) of the backend",
+                total_num_qubits,
+                self._num_qubits,
             )
         circuits = []
         for circ in self._circuits:
             new_circ = circ
             for _ in range(len(self._layout) - 1):
                 new_circ = circ.tensor(new_circ)
+            new_circ.metadata = circ.metadata
             circuits.append(new_circ)
 
         return circuits
 
-    def _split_bitstrings(self, raw_result: SamplerResult) -> SamplerResult:
+    def _postprocessing(self, result: Union[Result, BaseResult, dict]) -> SamplerResult:
+        """TODO"""
+        if not isinstance(result, Result):
+            raise TypeError("result must be an instance of Result.")
+
+        raw_results = [result]
+        raw_counts = self._get_counts(raw_results)  # type: ignore
         new_counts = []
         step = len(self._layout[0])
-        for counts in raw_result.counts:
+        for counts in raw_counts:
             counter = Counter()
             for key, value in counts.items():
                 for i in range(0, len(key), step):
                     counter[key[i : i + step]] += value
             new_counts.append(Counts(counter))
 
+        metadata = [
+            res.header.metadata
+            for result in raw_results
+            for res in result.results  # type:ignore # pylint: disable=no-member
+        ]
+
         return SamplerResult(
             counts=new_counts,
-            shots=raw_result.shots,
-            raw_results=raw_result.raw_results,
-            metadata=raw_result.metadata,
+            shots=int(sum(new_counts[0].values())),
+            raw_results=raw_results,
+            metadata=metadata,
         )

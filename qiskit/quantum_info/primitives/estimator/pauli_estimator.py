@@ -49,13 +49,13 @@ class PauliEstimator(BaseEstimator):
         self,
         circuits: list[Union[QuantumCircuit, Statevector]],
         observables: list[Union[BaseOperator, PauliSumOp]],
-        backend: Union[Backend, BaseSampler],
+        sampler: Union[Backend, BaseSampler],
         strategy: bool = True,  # To be str like TPB
     ):
         super().__init__(
             circuits=circuits,
             observables=observables,
-            sampler=BaseSampler.from_backend(backend),
+            sampler=sampler,
         )
         self._measurement_strategy = strategy
 
@@ -83,7 +83,7 @@ class PauliEstimator(BaseEstimator):
             common_circuit.measure_all()
             common_circuit = cast(
                 QuantumCircuit,
-                transpile(common_circuit, self.backend, **self.transpile_options.__dict__),
+                transpile(common_circuit, **self.transpile_options.__dict__),
             )
             bit_map = {bit: index for index, bit in enumerate(common_circuit.qubits)}
             layout = [bit_map[qr[0]] for _, qr, _ in common_circuit[-num_qubits:]]
@@ -93,7 +93,7 @@ class PauliEstimator(BaseEstimator):
             transpile_opts.update_options(initial_layout=layout)
             diff_circuits = cast(
                 "list[QuantumCircuit]",
-                transpile(diff_circuits, self.backend, **transpile_opts.__dict__),
+                transpile(diff_circuits, **transpile_opts.__dict__),
             )
             # 3. combine
             transpiled_circuits = []
