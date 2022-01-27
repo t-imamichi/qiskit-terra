@@ -49,13 +49,13 @@ class PauliEstimator(BaseEstimator):
         self,
         circuits: list[Union[QuantumCircuit, Statevector]],
         observables: list[Union[BaseOperator, PauliSumOp]],
-        sampler: Union[Backend, BaseSampler],
+        backend: Union[Backend, BaseSampler],
         strategy: bool = True,  # To be str like TPB
     ):
         super().__init__(
             circuits=circuits,
             observables=observables,
-            sampler=sampler,
+            sampler=BaseSampler.from_backend(backend),
         )
         self._measurement_strategy = strategy
 
