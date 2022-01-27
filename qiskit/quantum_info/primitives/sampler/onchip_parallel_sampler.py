@@ -34,6 +34,8 @@ logger = logging.getLogger(__name__)
 
 
 class OnchipParallelSampler(BaseSampler):
+    """On-chip parallelization sampler"""
+
     def __init__(
         self,
         backend: Union[Backend, BaseBackendWrapper],
@@ -54,6 +56,7 @@ class OnchipParallelSampler(BaseSampler):
 
     @property
     def layout(self) -> list[list[int]]:
+        """Return layout"""
         return self._layout
 
     def _validate_circuits(self) -> bool:
@@ -109,7 +112,7 @@ class OnchipParallelSampler(BaseSampler):
         total_num_qubits = self._circuits[0].num_qubits * len(self._layout)
         if total_num_qubits > self._num_qubits:
             logger.fatal(
-                f"Total number of qubits (%d) exceeds " f"the number of qubits (%d) of the backend",
+                "Total number of qubits (%d) exceeds the number of qubits (%d) of the backend",
                 total_num_qubits,
                 self._num_qubits,
             )
