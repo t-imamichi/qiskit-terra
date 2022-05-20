@@ -426,13 +426,17 @@ class BasePauli(BaseOperator, AdjointMixin, MultiplyMixin):
         x_indices = np.asarray(x).dot(twos_array)
         z_indices = np.asarray(z).dot(twos_array)
 
-        indptr = np.arange(dim + 1, dtype=np.uint)
-        indices = indptr ^ x_indices
         if phase:
             coeff = (-1j) ** phase
         else:
             coeff = 1
-        data = np.array([coeff * (-1) ** (bin(i).count("1") % 2) for i in z_indices & indptr])
+        dtype = np.uint8
+        indptr = np.arange(dim + 1, dtype=dtype)
+        indices = indptr ^ x_indices
+        z_bin = np.unpackbits(dtype(z_indices))
+        indptr_bin = np.unpackbits(indptr[:, np.newaxis], axis=1)
+        popcount = (z_bin & indptr_bin).sum(axis=1, dtype=np.uint8)
+        data = np.array(coeff * (-1) ** popcount)
         if sparse:
             # Return sparse matrix
             from scipy.sparse import csr_matrix
