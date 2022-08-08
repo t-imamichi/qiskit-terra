@@ -45,18 +45,38 @@ class ProbDistribution(dict):
             ValueError: If the string format of the keys is incorrect
         """
         self.shots = shots
-        self._num_bits = 0
-        if data:
+        if not data:
+            int_data = {}
+            self._hex_data = {}
+            self._bin_data = {}
+        else:
             first_key = next(iter(data.keys()))
             if isinstance(first_key, int):
-                self._num_bits = len(bin(max(data.keys()))) - 2
+                int_data = data
+                self._hex_data = {hex(key): value for key, value in int_data.items()}
+                num_bits = len(bin(max(int_data.keys()))) - 2
+                self._bin_data = {
+                    format(key, "b").zfill(num_bits): value for key, value in int_data.items()
+                }
             elif isinstance(first_key, str):
-                if first_key.startswith("0x") or first_key.startswith("0b"):
-                    data = {int(key, 0): value for key, value in data.items()}
-                    self._num_bits = len(bin(max(data.keys()))) - 2
+                if first_key.startswith("0x"):
+                    int_data = {int(key, 0): value for key, value in data.items()}
+                    self._hex_data = data
+                    num_bits = len(bin(max(int_data.keys()))) - 2
+                    self._bin_data = {
+                        format(key, "b").zfill(num_bits): value for key, value in int_data.items()
+                    }
+                elif first_key.startswith("0b"):
+                    int_data = {int(key, 0): value for key, value in data.items()}
+                    self._hex_data = {hex(key): value for key, value in int_data.items()}
+                    num_bits = len(bin(max(int_data.keys()))) - 2
+                    self._bin_data = {
+                        format(key, "b").zfill(num_bits): value for key, value in int_data.items()
+                    }
                 elif self._bitstring_regex.search(first_key):
-                    self._num_bits = max(len(key) for key in data)
-                    data = {int(key, 2): value for key, value in data.items()}
+                    int_data = {int(key, 2): value for key, value in data.items()}
+                    self._hex_data = {hex(key): value for key, value in int_data.items()}
+                    self._bin_data = data
                 else:
                     raise ValueError(
                         "The input keys are not a valid string format, must either "
@@ -65,7 +85,7 @@ class ProbDistribution(dict):
                     )
             else:
                 raise TypeError("Input data's keys are of invalid type, must be str or int")
-        super().__init__(data)
+        super().__init__(int_data)
 
     def binary_probabilities(self, num_bits=None):
         """Build a probabilities dictionary with binary string keys
@@ -79,8 +99,9 @@ class ProbDistribution(dict):
             dict: A dictionary where the keys are binary strings in the format
                 ``"0110"``
         """
-        n = num_bits or self._num_bits
-        return {format(key, "b").zfill(n): value for key, value in self.items()}
+        if num_bits is not None:
+            return {format(key, "b").zfill(num_bits): value for key, value in self.items()}
+        return self._bin_data
 
     def hex_probabilities(self):
         """Build a probabilities dictionary with hexadecimal string keys
@@ -89,4 +110,4 @@ class ProbDistribution(dict):
             dict: A dictionary where the keys are hexadecimal strings in the
                 format ``"0x1a"``
         """
-        return {hex(key): value for key, value in self.items()}
+        return self._hex_data
