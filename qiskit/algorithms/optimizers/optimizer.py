@@ -23,6 +23,7 @@ from typing import Any, Callable, Dict, List, Optional, Tuple, Union
 import numpy as np
 import scipy
 
+from qiskit import QuantumCircuit
 from qiskit.algorithms.algorithm_result import AlgorithmResult
 
 if sys.version_info >= (3, 8):
@@ -393,3 +394,14 @@ class Optimizer(ABC):
     def set_max_evals_grouped(self, limit):
         """Set max evals grouped"""
         self._max_evals_grouped = limit
+
+    def validate_ansatz(self, ansatz: QuantumCircuit):
+        """Check whether the ansatz is compatible with this optimizer.
+
+        Args:
+            ansatz: The ansatz
+
+        Raises:
+            AlgorithmicError: if the ansatz is not compatible with the optimizer.
+        """
+        pass

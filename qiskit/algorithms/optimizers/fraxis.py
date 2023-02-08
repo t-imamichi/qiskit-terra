@@ -17,10 +17,14 @@ from typing import Optional
 import numpy as np
 from scipy.optimize import OptimizeResult
 
+from qiskit import QuantumCircuit, transpile
+from qiskit.algorithms.exceptions import AlgorithmError
 from qiskit.quantum_info import OneQubitEulerDecomposer, Pauli
 from qiskit.utils import algorithm_globals
 
 from .scipy_optimizer import SciPyOptimizer
+
+BASIS_GATES = ["u", "cx"]
 
 
 class FraxisOptimizer(SciPyOptimizer):
@@ -65,6 +69,50 @@ class FraxisOptimizer(SciPyOptimizer):
             if k in self._OPTIONS:
                 options[k] = v
         super().__init__(method=fraxis, options=options, **kwargs)
+
+    def validate_ansatz(self, ansatz: QuantumCircuit):
+        """Raises an error if the ansatz is not compatible with FraxisOptimizer.
+
+        Args:
+            ansatz: The ansatz.
+
+        Raises
+            AlgorithmError: if the ansatz is not compatible with FraxisOptimizer.
+        """
+        if ansatz.num_parameters == 0:
+            raise AlgorithmError("The ansatz is not parametrized")
+
+        qc = transpile(ansatz, basis_gates=BASIS_GATES, optimization_level=0)
+        param_index = {param: ind for ind, param in enumerate(qc.parameters)}
+        for inst in qc.data:
+            num_params = 0
+            for param in inst.operation.params:
+                if len(param.parameters) != 0:
+                    num_params += 1
+            if inst.operation.name != "u" and num_params > 0:
+                raise AlgorithmError(
+                    f"The ansatz has a parametrized gate not compatible with FraxisOptimizer: {inst}"
+                )
+            if inst.operation.name == "u":
+                if num_params != 3:
+                    raise AlgorithmError(
+                        "The ansatz has a U gate not compatible with FraxisOptimizer. "
+                        f"Some parameters are bound: {inst}"
+                    )
+                indices = []
+                for param in inst.operation.params:
+                    if param not in param_index:
+                        raise AlgorithmError(
+                            "The ansatz has a U gate not compatible with FraxisOptimizer. "
+                            f"Some parameters might be shared or combined: {inst}"
+                        )
+                    indices.append(param_index[param])
+                    del param_index[param]  # prevent from sharing parameters with other gates
+                if indices[0] + 1 != indices[1] or indices[1] + 1 != indices[2]:
+                    raise AlgorithmError(
+                        "The ansatz has a U gate not compatible with FraxisOptimizer. "
+                        f"Parameters are not sequentially ordered: {inst}"
+                    )
 
 
 X_mat = Pauli("X").to_matrix()

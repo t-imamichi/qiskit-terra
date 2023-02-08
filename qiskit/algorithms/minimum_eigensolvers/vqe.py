@@ -164,6 +164,7 @@ class VQE(VariationalAlgorithm, MinimumEigensolver):
         aux_operators: ListOrDict[BaseOperator | PauliSumOp] | None = None,
     ) -> VQEResult:
         self._check_operator_ansatz(operator)
+        self._check_optimizer_ansatz()
 
         initial_point = validate_initial_point(self.initial_point, self.ansatz)
 
@@ -318,6 +319,15 @@ class VQE(VariationalAlgorithm, MinimumEigensolver):
 
         if self.ansatz.num_parameters == 0:
             raise AlgorithmError("The ansatz must be parameterized, but has no free parameters.")
+
+    def _check_optimizer_ansatz(self):
+        """Check that the ansatz is compatible with the optimizer.
+
+        Raises:
+            AlgorithmError: if the ansatz is not compatible with the optimizer
+        """
+        if isinstance(self.optimizer, Optimizer):
+            self.optimizer.validate_ansatz(self.ansatz)
 
     def _build_vqe_result(
         self,
