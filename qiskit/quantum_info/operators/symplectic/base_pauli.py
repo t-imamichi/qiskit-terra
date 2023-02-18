@@ -397,7 +397,7 @@ class BasePauli(BaseOperator, AdjointMixin, MultiplyMixin):
         return base_z, base_x, base_phase
 
     @staticmethod
-    def _to_matrix(z, x, phase=0, group_phase=False, sparse=False):
+    def _to_matrix(z, x, phase=0, group_phase=False, sparse=False, coeff=1):
         """Return the matrix from symplectic representation.
 
         The Pauli is defined as :math:`P = (-i)^{phase + z.x} * Z^z.x^x`
@@ -433,9 +433,7 @@ class BasePauli(BaseOperator, AdjointMixin, MultiplyMixin):
         indptr = np.arange(dim + 1, dtype=np.uint)
         indices = indptr ^ x_indices
         if phase:
-            coeff = (-1j) ** phase
-        else:
-            coeff = 1
+            coeff *= (-1j) ** phase
         data = coeff * _PARITY[(z_indices & indptr).astype(np.uint8)]
         if sparse:
             # Return sparse matrix

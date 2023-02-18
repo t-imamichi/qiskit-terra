@@ -944,8 +944,14 @@ class SparsePauliOp(LinearOp):
 
             def __getitem__(self, key):
                 coeff = self.obj.coeffs[key]
-                mat = self.obj.paulis[key].to_matrix(sparse)
-                return coeff * mat
+                pauli = self.obj.paulis[key]
+                if isinstance(coeff, np.number):
+                    mat = pauli._to_matrix(
+                        pauli.z, pauli.x, pauli._phase[0], sparse=sparse, coeff=coeff
+                    )
+                else:
+                    mat = coeff * pauli.to_matrix(sparse)
+                return mat
 
         return MatrixIterator(self)
 
