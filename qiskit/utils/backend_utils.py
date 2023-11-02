@@ -223,10 +223,7 @@ def is_simulator_backend(backend):
     Returns:
         bool: True is a simulator
     """
-    backend_interface_version = _get_backend_interface_version(backend)
-    if backend_interface_version <= 1:
-        return backend.configuration().simulator
-    return False
+    return backend.configuration().simulator
 
 
 @deprecate_func(
@@ -243,10 +240,7 @@ def is_local_backend(backend):
     Returns:
         bool: True is a local backend
     """
-    backend_interface_version = _get_backend_interface_version(backend)
-    if backend_interface_version <= 1:
-        return backend.configuration().local
-    return False
+    return backend.configuration().local
 
 
 @deprecate_func(
