@@ -2947,7 +2947,9 @@ class QuantumCircuit:
 
     def assign_parameters(  # pylint: disable=missing-raises-doc
         self,
-        parameters: Union[Mapping[Parameter, ParameterValueType], Sequence[ParameterValueType]],
+        parameters: Union[
+            Mapping[Union[Parameter, str], ParameterValueType], Sequence[ParameterValueType]
+        ],
         inplace: bool = False,
         *,
         flat_input: bool = False,
@@ -3154,9 +3156,8 @@ class QuantumCircuit:
         )
         return None if inplace else target
 
-    @staticmethod
     def _unroll_param_dict(
-        parameter_binds: Mapping[Parameter, ParameterValueType]
+        self, parameter_binds: Mapping[Union[Parameter, str], ParameterValueType]
     ) -> Mapping[Parameter, ParameterValueType]:
         out = {}
         for parameter, value in parameter_binds.items():
@@ -3167,6 +3168,11 @@ class QuantumCircuit:
                         f" but was assigned to {len(value)} values."
                     )
                 out.update(zip(parameter, value))
+            elif isinstance(parameter, str):
+                if parameter not in self._parameter_table.get_names():
+                    raise CircuitError(f"Parameter '{parameter}' does not exist in this circuit.")
+                param = [param for param in self._parameter_table if param.name == parameter][0]
+                out[param] = value
             else:
                 out[parameter] = value
         return out
