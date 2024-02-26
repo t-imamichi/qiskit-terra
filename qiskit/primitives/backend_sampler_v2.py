@@ -14,18 +14,14 @@
 
 from __future__ import annotations
 
-from dataclasses import dataclass, field
-from typing import Any, Dict, Iterable, List, Optional, Tuple, Union
 import warnings
+from dataclasses import dataclass
+from typing import Iterable
 
 import numpy as np
 from numpy.typing import NDArray
 
 from qiskit.circuit.quantumcircuit import QuantumCircuit
-from qiskit.providers.backend import BackendV1, BackendV2
-from qiskit.result import Result
-from qiskit.transpiler.passmanager import PassManager
-
 from qiskit.primitives.backend_estimator import _run_circuits
 from qiskit.primitives.base import BaseSamplerV2
 from qiskit.primitives.containers import (
@@ -36,28 +32,10 @@ from qiskit.primitives.containers import (
     make_data_bin,
 )
 from qiskit.primitives.containers.bit_array import _min_num_bytes
-from qiskit.primitives.primitive_job import PrimitiveJob
 from qiskit.primitives.containers.sampler_pub import SamplerPub
-
-
-@dataclass
-class ExecutionOptions:
-    """Options for execution."""
-
-    shots: int = 102
-    seed: int | np.random.Generator | None = None
-
-
-@dataclass
-class Options:
-    """Options for the primitives.
-
-    Args:
-        execution: Execution time options. See :class:`ExecutionOptions` for all available options.
-    """
-
-    execution: ExecutionOptions = field(default_factory=ExecutionOptions)
-    transpilation: dict[str, Any] = field(default_factory=dict)
+from qiskit.primitives.primitive_job import PrimitiveJob
+from qiskit.providers.backend import BackendV2
+from qiskit.result import Result
 
 
 @dataclass
@@ -68,7 +46,7 @@ class _MeasureInfo:
     start: int
 
 
-class BackendSampler(BaseSamplerV2):
+class BackendSamplerV2(BaseSamplerV2):
     """A :class:`~.BaseSampler` implementation that provides an interface for
     leveraging the sampler interface from any backend.
 
@@ -88,10 +66,8 @@ class BackendSampler(BaseSamplerV2):
     def __init__(
         self,
         *,
-        backend: BackendV1 | BackendV2,
-        options: Options | None = None,
-        pass_manager: PassManager | None = None,
-        skip_transpilation: bool = False,
+        backend: BackendV2,
+        default_shots: int | None = None,
     ):
         """Initialize a new BackendSampler
 
@@ -106,19 +82,13 @@ class BackendSampler(BaseSamplerV2):
             ValueError: If backend is not provided
         """
         super().__init__()
-        if options is None:
-            self.options = Options()
-        elif not isinstance(options, Options):
-            self.options = Options(**options)
         self._backend = backend
+        self._default_shots = default_shots
         self._circuits = []
         self._parameters = []
-        self._transpile_options = Options()
-        self._pass_manager = pass_manager
-        self._skip_transpilation = skip_transpilation
 
     @property
-    def backend(self) -> BackendV1 | BackendV2:
+    def backend(self) -> BackendV2:
         """
         Returns:
             The backend which this sampler object based on
@@ -126,37 +96,15 @@ class BackendSampler(BaseSamplerV2):
         return self._backend
 
     @property
-    def transpile_options(self) -> Dict[str, Any]:
-        """Return the transpiler options for transpiling the circuits."""
-        return self.options.transpilation
+    def default_shots(self) -> int:
+        """Return the default shots"""
+        return self._default_shots
 
-    def set_transpile_options(self, **fields):
-        """Set the transpiler options for transpiler.
-        Args:
-            **fields: The fields to update the options.
-        Returns:
-            self.
-        """
-        self.options.transpilation.update(**fields)
-
-    def _transpile(self, circuit: QuantumCircuit) -> QuantumCircuit:
-        if self._skip_transpilation:
-            ret = circuit
-        elif self._pass_manager:
-            ret = self._pass_manager.run(circuit)
-        else:
-            from qiskit.compiler import transpile
-
-            ret = transpile(
-                circuit,
-                self.backend,
-                **self.options.transpilation,
-            )
-        return ret
-
-    def run(self, pubs: Iterable[SamplerPubLike], *, shots: int | None = None) -> PrimitiveJob[PrimitiveResult[PubResult]]:
+    def run(
+        self, pubs: Iterable[SamplerPubLike], *, shots: int | None = None
+    ) -> PrimitiveJob[PrimitiveResult[PubResult]]:
         if shots is None:
-            shots = self.options.execution.shots
+            shots = self._default_shots
         coerced_pubs = [SamplerPub.coerce(pub, shots) for pub in pubs]
         if any(len(pub.circuit.cregs) == 0 for pub in coerced_pubs):
             warnings.warn(
@@ -171,11 +119,10 @@ class BackendSampler(BaseSamplerV2):
     def _run(self, pubs: Iterable[SamplerPub]) -> PrimitiveResult[PubResult]:
         results = [self._run_pub(pub) for pub in pubs]
         return PrimitiveResult(results)
-    
+
     def _run_pub(self, pub: SamplerPub) -> PubResult:
-        circuit = self._transpile(pub.circuit)
         meas_info, max_num_bytes = _analyze_circuit(pub.circuit)
-        bound_circuits = pub.parameter_values.bind_all(circuit)
+        bound_circuits = pub.parameter_values.bind_all(pub.circuit)
         arrays = {
             item.creg_name: np.zeros(
                 bound_circuits.shape + (pub.shots, item.num_bytes), dtype=np.uint8
@@ -185,7 +132,6 @@ class BackendSampler(BaseSamplerV2):
         flatten_circuits = np.ravel(bound_circuits).tolist()
         result_memory, _ = _run_circuits(
             flatten_circuits, self._backend, memory=True, shots=pub.shots
-            #flatten_circuits, self._backend, memory=True, **self.options.execution.__dict__
         )
         memory_list = _prepare_memory(result_memory, max_num_bytes)
 
@@ -199,14 +145,13 @@ class BackendSampler(BaseSamplerV2):
             shape=bound_circuits.shape,
         )
         meas = {
-            item.creg_name: BitArray(arrays[item.creg_name], item.num_bits)
-            for item in meas_info
+            item.creg_name: BitArray(arrays[item.creg_name], item.num_bits) for item in meas_info
         }
         data_bin = data_bin_cls(**meas)
         return PubResult(data_bin, metadata={"shots": pub.shots})
 
 
-def _analyze_circuit(circuit: QuantumCircuit) -> Tuple[List[_MeasureInfo], int]:
+def _analyze_circuit(circuit: QuantumCircuit) -> tuple[list[_MeasureInfo], int]:
     meas_info = []
     start = 0
     for creg in circuit.cregs:
@@ -224,7 +169,7 @@ def _analyze_circuit(circuit: QuantumCircuit) -> Tuple[List[_MeasureInfo], int]:
     return meas_info, _min_num_bytes(start)
 
 
-def _prepare_memory(results: List[Result], num_bytes: int) -> NDArray[np.uint8]:
+def _prepare_memory(results: list[Result], num_bytes: int) -> NDArray[np.uint8]:
     lst = []
     for res in results:
         for exp in res.results:
