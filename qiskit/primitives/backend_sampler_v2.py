@@ -10,7 +10,7 @@
 # copyright notice, and modified files need to carry a notice indicating
 # that they have been altered from the originals.
 
-"""Sampler implementation for an arbitrary Backend object."""
+"""Sampler V2 implementation for an arbitrary Backend object."""
 
 from __future__ import annotations
 
@@ -106,15 +106,19 @@ class BackendSamplerV2(BaseSamplerV2):
         if shots is None:
             shots = self._default_shots
         coerced_pubs = [SamplerPub.coerce(pub, shots) for pub in pubs]
-        if any(len(pub.circuit.cregs) == 0 for pub in coerced_pubs):
-            warnings.warn(
-                "One of your circuits has no output classical registers and so the result "
-                "will be empty. Did you mean to add measurement instructions?",
-                UserWarning,
-            )
+        self._validate_pubs(coerced_pubs)
         job = PrimitiveJob(self._run, coerced_pubs)
         job._submit()
         return job
+
+    def _validate_pubs(self, pubs: list[SamplerPub]):
+        for i, pub in enumerate(pubs):
+            if len(pub.circuit.cregs) == 0:
+                warnings.warn(
+                    f"The {i}-th pub's circuit has no output classical registers and so the result "
+                    "will be empty. Did you mean to add measurement instructions?",
+                    UserWarning,
+                )
 
     def _run(self, pubs: Iterable[SamplerPub]) -> PrimitiveResult[PubResult]:
         results = [self._run_pub(pub) for pub in pubs]
