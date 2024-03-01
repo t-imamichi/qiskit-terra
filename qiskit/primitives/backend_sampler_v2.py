@@ -10,7 +10,7 @@
 # copyright notice, and modified files need to carry a notice indicating
 # that they have been altered from the originals.
 
-"""Sampler V2 implementation for an arbitrary Backend object."""
+"""Sampler V2 implementation for an arbitrary BackendV2 object."""
 
 from __future__ import annotations
 
@@ -21,7 +21,7 @@ from typing import Iterable
 import numpy as np
 from numpy.typing import NDArray
 
-from qiskit.circuit.quantumcircuit import QuantumCircuit
+from qiskit.circuit import QuantumCircuit
 from qiskit.primitives.backend_estimator import _run_circuits
 from qiskit.primitives.base import BaseSamplerV2
 from qiskit.primitives.containers import (
@@ -47,20 +47,23 @@ class _MeasureInfo:
 
 
 class BackendSamplerV2(BaseSamplerV2):
-    """A :class:`~.BaseSampler` implementation that provides an interface for
-    leveraging the sampler interface from any backend.
+    """
+    Implementation of :class:`BaseSamplerV2` using a backend.
 
-    This class provides a sampler interface from any backend and doesn't do
-    any measurement mitigation, it just computes the probability distribution
-    from the counts. It facilitates using backends that do not provide a
-    native :class:`~.BaseSampler` implementation in places that work with
-    :class:`~.BaseSampler`, such as algorithms in :mod:`qiskit.algorithms`
-    including :class:`~.qiskit.algorithms.minimum_eigensolvers.SamplingVQE`.
-    However, if you're using a provider that has a native implementation of
-    :class:`~.BaseSampler`, it is a better choice to leverage that native
-    implementation as it will likely include additional optimizations and be
-    a more efficient implementation. The generic nature of this class
-    precludes doing any provider- or backend-specific optimizations.
+    This class provides a SamplerV2 interface from any :class:`~.BackendV2` backend
+    and doesn't do any measurement mitigation, it just computes the bitstrings.
+
+    This sampler supports providing arrays of parameter value sets to
+    bind against a single circuit.
+
+    Each tuple of ``(circuit, <optional> parameter values, <optional> shots)``, called a sampler
+    primitive unified bloc (PUB), produces its own array-valued result. The :meth:`~run` method can
+    be given many pubs at once.
+
+    .. note::
+
+        This class requires a backend that supports ``memory`` option.
+
     """
 
     def __init__(
@@ -69,30 +72,18 @@ class BackendSamplerV2(BaseSamplerV2):
         backend: BackendV2,
         default_shots: int = 1024,
     ):
-        """Initialize a new BackendSampler
-
+        """
         Args:
             backend: Required: the backend to run the sampler primitive on
-            options: Default options.
-            pass_manager: An optional pass manager to use for the internal compilation
-            skip_transpilation: If this is set to True the internal compilation
-                of the input circuits is skipped and the circuit objects
-                will be directly executed when this objected is called.
-        Raises:
-            ValueError: If backend is not provided
+            default_shots: The default shots for the sampler if not specified during run.
         """
         super().__init__()
         self._backend = backend
         self._default_shots = default_shots
-        self._circuits = []
-        self._parameters = []
 
     @property
     def backend(self) -> BackendV2:
-        """
-        Returns:
-            The backend which this sampler object based on
-        """
+        """Returns the backend which this sampler object based on."""
         return self._backend
 
     @property
@@ -157,10 +148,11 @@ class BackendSamplerV2(BaseSamplerV2):
 
 def _analyze_circuit(circuit: QuantumCircuit) -> tuple[list[_MeasureInfo], int]:
     meas_info = []
-    start = 0
+    max_num_bits = 0
     for creg in circuit.cregs:
         name = creg.name
         num_bits = creg.size
+        start = circuit.find_bit(creg[0]).index
         meas_info.append(
             _MeasureInfo(
                 creg_name=name,
@@ -169,8 +161,8 @@ def _analyze_circuit(circuit: QuantumCircuit) -> tuple[list[_MeasureInfo], int]:
                 start=start,
             )
         )
-        start += num_bits
-    return meas_info, _min_num_bytes(start)
+        max_num_bits = max(max_num_bits, start + num_bits)
+    return meas_info, _min_num_bytes(max_num_bits)
 
 
 def _prepare_memory(results: list[Result], num_bytes: int) -> NDArray[np.uint8]:
