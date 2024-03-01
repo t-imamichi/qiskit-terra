@@ -67,7 +67,7 @@ class BackendSamplerV2(BaseSamplerV2):
         self,
         *,
         backend: BackendV2,
-        default_shots: int | None = None,
+        default_shots: int = 1024,
     ):
         """Initialize a new BackendSampler
 
@@ -177,7 +177,7 @@ def _prepare_memory(results: list[Result], num_bytes: int) -> NDArray[np.uint8]:
     lst = []
     for res in results:
         for exp in res.results:
-            if hasattr(exp.data, "memory"):
+            if hasattr(exp.data, "memory") and exp.data.memory:
                 data = b"".join(int(i, 16).to_bytes(num_bytes, "big") for i in exp.data.memory)
                 data = np.frombuffer(data, dtype=np.uint8).reshape(-1, num_bytes)
             else:
