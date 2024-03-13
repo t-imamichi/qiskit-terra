@@ -108,6 +108,20 @@ class BackendEstimatorV2(BaseEstimatorV2):
         precision: float | None = None,
         seed_simulator: int | None = None,
     ) -> PrimitiveJob[PrimitiveResult[PubResult]]:
+        """Estimate expectation values for each provided pub (Primitive Unified Bloc).
+
+        Args:
+            pubs: An iterable of pub-like objects, such as tuples ``(circuit, observables)``
+                  or ``(circuit, observables, parameter_values)``.
+            precision: The target precision for expectation value estimates of each
+                       run Estimator Pub that does not specify its own precision. If None
+                       the estimator's default precision value will be used.
+            seed_simulator: The seed to use in the simulator.
+                If None, a random seed will be used.
+
+        Returns:
+            A job object that contains results.
+        """
         if precision is None:
             precision = self._default_precision
         coerced_pubs = [EstimatorPub.coerce(pub, precision) for pub in pubs]
