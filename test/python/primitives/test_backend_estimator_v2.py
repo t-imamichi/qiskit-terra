@@ -44,6 +44,7 @@ class TestBackendEstimatorV2(QiskitTestCase):
         super().setUp()
         self._precision = 5e-3
         self._rtol = 3e-1
+        self._seed = 12
         self.ansatz = RealAmplitudes(num_qubits=2, reps=2)
         self.observable = SparsePauliOp.from_list(
             [
@@ -84,7 +85,7 @@ class TestBackendEstimatorV2(QiskitTestCase):
         # Specify the circuit and observable by indices.
         # calculate [ <psi1(theta1)|H1|psi1(theta1)> ]
         ham1 = hamiltonian1.apply_layout(psi1.layout)
-        job = estimator.run([(psi1, ham1, [theta1])])
+        job = estimator.run([(psi1, ham1, [theta1])], seed_simulator=self._seed)
         result = job.result()
         np.testing.assert_allclose(result[0].data.evs, [1.5555572817900956], rtol=self._rtol)
 
@@ -94,13 +95,13 @@ class TestBackendEstimatorV2(QiskitTestCase):
         # User can append a circuit and observable.
         # calculate [ <psi2(theta2)|H1|psi2(theta2)> ]
         ham1 = hamiltonian1.apply_layout(psi2.layout)
-        result2 = estimator.run([(psi2, ham1, theta2)]).result()
+        result2 = estimator.run([(psi2, ham1, theta2)], seed_simulator=self._seed).result()
         np.testing.assert_allclose(result2[0].data.evs, [2.97797666], rtol=self._rtol)
 
         # calculate [ <psi1(theta1)|H2|psi1(theta1)>, <psi1(theta1)|H3|psi1(theta1)> ]
         ham2 = hamiltonian2.apply_layout(psi1.layout)
         ham3 = hamiltonian3.apply_layout(psi1.layout)
-        result3 = estimator.run([(psi1, [ham2, ham3], theta1)]).result()
+        result3 = estimator.run([(psi1, [ham2, ham3], theta1)], seed_simulator=self._seed).result()
         np.testing.assert_allclose(result3[0].data.evs, [-0.551653, 0.07535239], rtol=self._rtol)
 
         # calculate [ [<psi1(theta1)|H1|psi1(theta1)>,
@@ -113,7 +114,8 @@ class TestBackendEstimatorV2(QiskitTestCase):
             [
                 (psi1, [ham1, ham3], [theta1, theta3]),
                 (psi2, ham2, theta2),
-            ]
+            ],
+            seed_simulator=self._seed,
         ).result()
         np.testing.assert_allclose(result4[0].data.evs, [1.55555728, -1.08766318], rtol=self._rtol)
         np.testing.assert_allclose(result4[1].data.evs, [0.17849238], rtol=self._rtol)
@@ -141,7 +143,7 @@ class TestBackendEstimatorV2(QiskitTestCase):
         estimator = BackendEstimatorV2(
             backend=backend, abelian_grouping=abelian_grouping, default_precision=self._precision
         )
-        result4 = estimator.run([pub1, pub2]).result()
+        result4 = estimator.run([pub1, pub2], seed_simulator=self._seed).result()
         np.testing.assert_allclose(result4[0].data.evs, [1.55555728, -1.08766318], rtol=self._rtol)
         np.testing.assert_allclose(result4[1].data.evs, [0.17849238], rtol=self._rtol)
 
@@ -155,7 +157,7 @@ class TestBackendEstimatorV2(QiskitTestCase):
             backend=backend, abelian_grouping=abelian_grouping, default_precision=self._precision
         )
         observable = self.observable.apply_layout(circuit.layout)
-        result = est.run([(circuit, observable)]).result()
+        result = est.run([(circuit, observable)], seed_simulator=self._seed).result()
         np.testing.assert_allclose(result[0].data.evs, [-1.284366511861733], rtol=self._rtol)
 
     @combine(backend=BACKENDS, abelian_grouping=[True, False])
@@ -176,7 +178,7 @@ class TestBackendEstimatorV2(QiskitTestCase):
             target = [-1]
             for val in param_vals:
                 self.subTest(f"{val}")
-                result = est.run([(qc, op, val)]).result()
+                result = est.run([(qc, op, val)], seed_simulator=self._seed).result()
                 np.testing.assert_allclose(result[0].data.evs, target, rtol=self._rtol)
                 self.assertEqual(result[0].metadata["target_precision"], self._precision)
 
@@ -194,7 +196,7 @@ class TestBackendEstimatorV2(QiskitTestCase):
             target = [-1]
             for val in param_vals:
                 self.subTest(f"{val}")
-                result = est.run([(qc, op, val)]).result()
+                result = est.run([(qc, op, val)], seed_simulator=self._seed).result()
                 np.testing.assert_allclose(result[0].data.evs, target, rtol=self._rtol)
                 self.assertEqual(result[0].metadata["target_precision"], self._precision)
 
@@ -213,7 +215,7 @@ class TestBackendEstimatorV2(QiskitTestCase):
             target = [1.5555572817900956]
             for val in param_vals:
                 self.subTest(f"{val}")
-                result = est.run([(qc, op, val)]).result()
+                result = est.run([(qc, op, val)], seed_simulator=self._seed).result()
                 np.testing.assert_allclose(result[0].data.evs, target, rtol=self._rtol)
                 self.assertEqual(result[0].metadata["target_precision"], self._precision)
 
@@ -233,19 +235,19 @@ class TestBackendEstimatorV2(QiskitTestCase):
             backend=backend, abelian_grouping=abelian_grouping, default_precision=self._precision
         )
         op_1 = op.apply_layout(qc.layout)
-        result = est.run([(qc, op_1)]).result()
+        result = est.run([(qc, op_1)], seed_simulator=self._seed).result()
         np.testing.assert_allclose(result[0].data.evs, [1], rtol=self._rtol)
 
         op_2 = op2.apply_layout(qc.layout)
-        result = est.run([(qc, op_2)]).result()
+        result = est.run([(qc, op_2)], seed_simulator=self._seed).result()
         np.testing.assert_allclose(result[0].data.evs, [1], rtol=self._rtol)
 
         op_3 = op.apply_layout(qc2.layout)
-        result = est.run([(qc2, op_3)]).result()
+        result = est.run([(qc2, op_3)], seed_simulator=self._seed).result()
         np.testing.assert_allclose(result[0].data.evs, [1], rtol=self._rtol)
 
         op_4 = op2.apply_layout(qc2.layout)
-        result = est.run([(qc2, op_4)]).result()
+        result = est.run([(qc2, op_4)], seed_simulator=self._seed).result()
         np.testing.assert_allclose(result[0].data.evs, [-1], rtol=self._rtol)
 
     @combine(backend=BACKENDS, abelian_grouping=[True, False])
@@ -265,27 +267,27 @@ class TestBackendEstimatorV2(QiskitTestCase):
             backend=backend, abelian_grouping=abelian_grouping, default_precision=self._precision
         )
         op_1 = op.apply_layout(qc.layout)
-        result = est.run([(qc, op_1)]).result()
+        result = est.run([(qc, op_1)], seed_simulator=self._seed).result()
         np.testing.assert_allclose(result[0].data.evs, [1], rtol=self._rtol)
 
         op_2 = op.apply_layout(qc2.layout)
-        result = est.run([(qc2, op_2)]).result()
+        result = est.run([(qc2, op_2)], seed_simulator=self._seed).result()
         np.testing.assert_allclose(result[0].data.evs, [1], rtol=self._rtol)
 
         op_3 = op2.apply_layout(qc.layout)
-        result = est.run([(qc, op_3)]).result()
+        result = est.run([(qc, op_3)], seed_simulator=self._seed).result()
         np.testing.assert_allclose(result[0].data.evs, [1], rtol=self._rtol)
 
         op_4 = op2.apply_layout(qc2.layout)
-        result = est.run([(qc2, op_4)]).result()
+        result = est.run([(qc2, op_4)], seed_simulator=self._seed).result()
         np.testing.assert_allclose(result[0].data.evs, [1], rtol=self._rtol)
 
         op_5 = op3.apply_layout(qc.layout)
-        result = est.run([(qc, op_5)]).result()
+        result = est.run([(qc, op_5)], seed_simulator=self._seed).result()
         np.testing.assert_allclose(result[0].data.evs, [1], rtol=self._rtol)
 
         op_6 = op3.apply_layout(qc2.layout)
-        result = est.run([(qc2, op_6)]).result()
+        result = est.run([(qc2, op_6)], seed_simulator=self._seed).result()
         np.testing.assert_allclose(result[0].data.evs, [-1], rtol=self._rtol)
 
     @combine(backend=BACKENDS, abelian_grouping=[True, False])
@@ -338,12 +340,16 @@ class TestBackendEstimatorV2(QiskitTestCase):
         )
 
         with self.subTest("ndarrary"):
-            result = backend_estimator.run([(qc, op, params_array)]).result()
+            result = backend_estimator.run(
+                [(qc, op, params_array)], seed_simulator=self._seed
+            ).result()
             self.assertEqual(result[0].data.evs.shape, (k,))
             np.testing.assert_allclose(result[0].data.evs, target[0].data.evs, rtol=self._rtol)
 
         with self.subTest("list of ndarray"):
-            result = backend_estimator.run([(qc, op, params_list_array)]).result()
+            result = backend_estimator.run(
+                [(qc, op, params_list_array)], seed_simulator=self._seed
+            ).result()
             self.assertEqual(result[0].data.evs.shape, (k,))
             np.testing.assert_allclose(result[0].data.evs, target[0].data.evs, rtol=self._rtol)
 
@@ -357,16 +363,23 @@ class TestBackendEstimatorV2(QiskitTestCase):
         psi1 = pm.run(self.psi[0])
         hamiltonian1 = self.hamiltonian[0].apply_layout(psi1.layout)
         theta1 = self.theta[0]
-        job = estimator.run([(psi1, hamiltonian1, [theta1])])
+        job = estimator.run([(psi1, hamiltonian1, [theta1])], seed_simulator=self._seed)
         result = job.result()
         np.testing.assert_allclose(result[0].data.evs, [1.901141473854881], rtol=self._rtol)
         # The result of the second run is the same
-        job = estimator.run([(psi1, hamiltonian1, [theta1]), (psi1, hamiltonian1, [theta1])])
+        job = estimator.run(
+            [(psi1, hamiltonian1, [theta1]), (psi1, hamiltonian1, [theta1])],
+            seed_simulator=self._seed,
+        )
         result = job.result()
         np.testing.assert_allclose(result[0].data.evs, [1.901141473854881], rtol=self._rtol)
         np.testing.assert_allclose(result[1].data.evs, [1.901141473854881], rtol=self._rtol)
         # apply smaller precision value
-        job = estimator.run([(psi1, hamiltonian1, [theta1])], precision=self._precision * 0.5)
+        job = estimator.run(
+            [(psi1, hamiltonian1, [theta1])],
+            precision=self._precision * 0.5,
+            seed_simulator=self._seed,
+        )
         result = job.result()
         np.testing.assert_allclose(result[0].data.evs, [1.5555572817900956], rtol=self._rtol)
 
@@ -395,14 +408,18 @@ class TestBackendEstimatorV2(QiskitTestCase):
         )
 
         with self.subTest("ndarrary"):
-            result = backend_estimator.run([(qc, op, params_array)]).result()
+            result = backend_estimator.run(
+                [(qc, op, params_array)], seed_simulator=self._seed
+            ).result()
             self.assertEqual(result[0].data.evs.shape, shape)
             np.testing.assert_allclose(
                 result[0].data.evs, target[0].data.evs, rtol=self._rtol, atol=1e-1
             )
 
         with self.subTest("list of ndarray"):
-            result = backend_estimator.run([(qc, op, params_list_array)]).result()
+            result = backend_estimator.run(
+                [(qc, op, params_list_array)], seed_simulator=self._seed
+            ).result()
             self.assertEqual(result[0].data.evs.shape, shape)
             np.testing.assert_allclose(
                 result[0].data.evs, target[0].data.evs, rtol=self._rtol, atol=1e-1

@@ -102,13 +102,17 @@ class BackendEstimatorV2(BaseEstimatorV2):
         return self._backend
 
     def run(
-        self, pubs: Iterable[EstimatorPubLike], *, precision: float | None = None
+        self,
+        pubs: Iterable[EstimatorPubLike],
+        *,
+        precision: float | None = None,
+        seed_simulator: int | None = None,
     ) -> PrimitiveJob[PrimitiveResult[PubResult]]:
         if precision is None:
             precision = self._default_precision
         coerced_pubs = [EstimatorPub.coerce(pub, precision) for pub in pubs]
         self._validate_pubs(coerced_pubs)
-        job = PrimitiveJob(self._run, coerced_pubs)
+        job = PrimitiveJob(self._run, coerced_pubs, seed_simulator)
         job._submit()
         return job
 
@@ -119,10 +123,12 @@ class BackendEstimatorV2(BaseEstimatorV2):
                     f"The {i}-th pub has precision 0. But precision should be larger than 0."
                 )
 
-    def _run(self, pubs: list[EstimatorPub]) -> PrimitiveResult[PubResult]:
-        return PrimitiveResult([self._run_pub(pub) for pub in pubs])
+    def _run(
+        self, pubs: list[EstimatorPub], seed_simulator: int | None
+    ) -> PrimitiveResult[PubResult]:
+        return PrimitiveResult([self._run_pub(pub, seed_simulator) for pub in pubs])
 
-    def _run_pub(self, pub: EstimatorPub) -> PubResult:
+    def _run_pub(self, pub: EstimatorPub, seed_simulator: int | None) -> PubResult:
         shots = int(np.ceil(1.0 / pub.precision**2))
         circuit = pub.circuit
         observables = pub.observables
@@ -138,7 +144,9 @@ class BackendEstimatorV2(BaseEstimatorV2):
         for index in np.ndindex(*bc_param_ind.shape):
             param_index = bc_param_ind[index]
             param_obs_map[param_index].update(bc_obs[index].keys())
-        expval_map = self._calc_expval_paulis(circuit, parameter_values, param_obs_map, shots)
+        expval_map = self._calc_expval_paulis(
+            circuit, parameter_values, param_obs_map, shots, seed_simulator
+        )
 
         # calculate expectation values and standard deviations
         evs = np.zeros_like(bc_param_ind, dtype=float)
@@ -160,17 +168,20 @@ class BackendEstimatorV2(BaseEstimatorV2):
         parameter_values: BindingsArray,
         param_obs_map: dict[tuple[int, ...], set[str]],
         shots: int,
+        seed_simulator: int | None,
     ) -> dict[tuple[tuple[int, ...], str], tuple[float, float]]:
         # generate circuits
         circuits = []
         for param_index, pauli_strings in param_obs_map.items():
             bound_circuit = parameter_values.bind(circuit, param_index)
-            meas_paulis = PauliList(pauli_strings)
+            meas_paulis = PauliList(sorted(pauli_strings))
             new_circuits = self._preprocessing(bound_circuit, meas_paulis, param_index)
             circuits.extend(new_circuits)
 
         # run circuits
-        result, metadata = _run_circuits(circuits, self._backend, shots=shots)
+        result, metadata = _run_circuits(
+            circuits, self._backend, shots=shots, seed_simulator=seed_simulator
+        )
 
         # postprocessing results
         expval_map: dict[tuple[tuple[int, ...], str], tuple[float, float]] = {}
