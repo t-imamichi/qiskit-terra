@@ -37,6 +37,8 @@ class PrimitiveJob(BasePrimitiveJob[ResultT, JobStatus]):
         self._function = function
         self._args = args
         self._kwargs = kwargs
+        self._result = None
+        self._status = None
 
     def _submit(self):
         if self._future is not None:
@@ -46,19 +48,30 @@ class PrimitiveJob(BasePrimitiveJob[ResultT, JobStatus]):
         self._future = executor.submit(self._function, *self._args, **self._kwargs)
         executor.shutdown(wait=False)
 
+    def _prepare_dump(self):
+        _ = self.result()
+        _ = self.status()
+        self._future = None
+
     def result(self) -> ResultT:
-        self._check_submitted()
-        return self._future.result()
+        if self._result is None:
+            self._check_submitted()
+            self._result = self._future.result()
+        return self._result
 
     def status(self) -> JobStatus:
-        self._check_submitted()
-        if self._future.running():
-            return JobStatus.RUNNING
-        elif self._future.cancelled():
-            return JobStatus.CANCELLED
-        elif self._future.done() and self._future.exception() is None:
-            return JobStatus.DONE
-        return JobStatus.ERROR
+        if self._status is None:
+            self._check_submitted()
+            if self._future.running():
+                # we should not store status running because it is not completed
+                return JobStatus.RUNNING
+            elif self._future.cancelled():
+                self._status = JobStatus.CANCELLED
+            elif self._future.done() and self._future.exception() is None:
+                self._status = JobStatus.DONE
+            else:
+                self._status = JobStatus.ERROR
+        return self._status
 
     def _check_submitted(self):
         if self._future is None:
